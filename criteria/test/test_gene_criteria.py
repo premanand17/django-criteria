@@ -3,7 +3,6 @@ from elastic.elastic_settings import ElasticSettings
 import os
 import criteria
 from data_pipeline.utils import IniParser
-import shutil
 from criteria.helper.gene_criteria import GeneCriteria
 
 IDX_SUFFIX = ElasticSettings.getattr('TEST')
@@ -29,15 +28,13 @@ def setUpModule():
 
 
 def tearDownModule():
-    if os.path.exists(TEST_DATA_DIR + '/STAGE'):
-        shutil.rmtree(TEST_DATA_DIR + '/STAGE')
     # remove index created
     # requests.delete(ElasticSettings.url() + '/' + INI_CONFIG['GENE_HISTORY']['index'])
     os.remove(MY_INI_FILE)
 
 
 class GeneCriteriaTest(TestCase):
-    '''Test interaction staging'''
+    '''Test GeneCriteria'''
 
     def setUp(self):
         '''Runs before each of the tests run from this class..creates the tests/data dir'''

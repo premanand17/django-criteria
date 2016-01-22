@@ -2,6 +2,7 @@ import logging
 from data_pipeline.utils import IniParser
 import os
 from builtins import classmethod
+import sys
 
 # Get an instance of a logger
 logger = logging.getLogger(__name__)
@@ -44,7 +45,6 @@ class CriteriaManager():
             if config[section_name] is not None:
                 section_config = config[section_name]
                 if 'feature' in section_config:
-
                     if feature is not None and feature != section_config['feature']:
                         continue
 
@@ -56,16 +56,22 @@ class CriteriaManager():
                         criteria_list.append(section_name)
                         criteria_dict[section_config['feature']] = criteria_list
 
+        print(criteria_dict)
         return criteria_dict
 
     @classmethod
-    def process_criterias(cls, feature, criteria=None, config=None):
+    def process_criterias(cls, feature, criteria=None, config=None, show=False):
+
+        from criteria.helper.gene_criteria import GeneCriteria
 
         if config is None:
             config = cls.get_criteria_config()
 
         available_criterias = cls.get_available_criterias(feature)[feature]
         print(available_criterias)
+
+        if show:
+            return available_criterias
 
         criterias_to_process = []
         if criteria is None:
@@ -81,8 +87,7 @@ class CriteriaManager():
         for section in criterias_to_process:
             if feature == 'gene':
                 print('Call to build criteria gene index')
-                from criteria.helper.gene_criteria import GeneCriteria
-                GeneCriteria.process_gene_criteria(section, config)
+                GeneCriteria.process_gene_criteria(feature, section, config)
             elif feature == 'marker':
                 print('Call to build criteria marker index')
             elif feature == 'region':
