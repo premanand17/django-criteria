@@ -1,5 +1,4 @@
-from elastic.search import Search, ScanAndScroll, ElasticQuery
-from elastic.elastic_settings import ElasticSettings
+from elastic.search import Search, ElasticQuery
 from elastic.query import BoolQuery, RangeQuery, OrFilter, Query
 from criteria.helper.criteria_manager import CriteriaManager
 from data_pipeline.utils import IniParser
@@ -11,96 +10,18 @@ import json
 import logging
 logger = logging.getLogger(__name__)
 
-class Criteria(object):
 
-#     @classmethod
-#     def is_in_mhc(cls, feature, section=None, config=None):
-#         print('+++++++++++++++++')
-#         print(cls.__name__)
-#         print('==================')
-#         source_idx = None
-#         source_idx_type = None
-#         default_section = config['DEFAULT']
-#         if feature == 'gene':
-#             source_idx_type = 'GENE'
-#             source_idx = ElasticSettings.idx('GENE', idx_type=source_idx_type)
-#             seqid = '6'
-#             field_list = ['start', 'stop', 'id']
-#             seqid_param = 'chromosome'
-#             seqid = '6'
-#             start_param = 'start'
-#             end_param = 'stop'
-#             criteria_idx = default_section['CRITERIA_IDX_GENE']
-#             criteria_idx_type = section
-#         elif feature == 'marker':
-#             source_idx_type = 'MARKER'
-#             source_idx = ElasticSettings.idx('MARKER', idx_type=source_idx_type)
-#             seqid_param = 'seqid'
-#             seqid = '6'
-#             field_list = ['start', 'end', 'id']
-#             start_param = 'start'
-#             end_param = 'end'
-#             criteria_idx = default_section['CRITERIA_IDX_MARKER']
-#             criteria_idx_type = section
-# 
-#         print(criteria_idx)
-#         print(criteria_idx_type)
-# 
-#         global total_hits
-#         total_hits = 0
-# 
-#         global gl_result_container
-#         gl_result_container = {}
-# 
-#         def process_hits(resp_json):
-#             hits = resp_json['hits']['hits']
-#             print('===================')
-#             print(len(hits))
-#             global total_hits
-#             total_hits = total_hits + len(hits)
-#             print('===================' + str(total_hits))
-#             map_exists = False
-# 
-#             global gl_result_container
-#             for hit in hits:
-#                 print(hit)
-#                 result_container = cls.tag_feature_to_all_diseases(hit['_id'], section, config,
-#                                                                    result_container=gl_result_container)
-#                 gl_result_container = result_container
-#                 print(len(gl_result_container))
-# 
-#                 if not map_exists:
-#                     cls.create_criteria_mapping(criteria_idx, criteria_idx_type)
-#                     map_exists = True
-#                 cls.load_result_container(result_container, criteria_idx, criteria_idx_type)
-#                 print(criteria_idx + ' ' + criteria_idx_type)
-#         # Defined MHC region as chr6:25,000,000..35,000,000
-#         start_range = 25000000
-#         end_range = 35000000
-#         ''' Constructs a range overlap query '''
-#         query = ElasticUtils.range_overlap_query(seqid, start_range, end_range, field_list, seqid_param,
-#                                                  start_param,
-#                                                  end_param)
-# #         query_bool = BoolQuery(must_arr=[RangeQuery(start_param, lte=start_range),
-# #                                          RangeQuery(end_param, gte=end_range)])
-# #         or_filter = OrFilter(RangeQuery(start_param, gte=start_range, lte=end_range))
-# #         or_filter.extend(RangeQuery(end_param, gte=start_range, lte=end_range)) \
-# #                  .extend(query_bool)
-# #         query = ElasticQuery.filtered(Query.term(seqid_param, seqid), or_filter, field_list)
-#         print(query.__dict__)
-#         # return elastic.search().docs
-#         ScanAndScroll.scan_and_scroll(source_idx, call_fun=process_hits, query=query)
-#         print(total_hits)
-#         print(gl_result_container)
+class Criteria(object):
 
     @classmethod
     def get_elastic_query(cls, section=None, config=None):
         section_config = config[section]
-        source_fields_str = section_config['source_fields']
-        source_fields = source_fields_str.split(',')
+        source_fields = []
 
-        if source_fields is None:
-            source_fields = []
+        if 'source_fields' in section_config:
+            source_fields_str = section_config['source_fields']
+            source_fields = source_fields_str.split(',')
+
         if section == 'is_gene_in_mhc' or section == 'is_marker_in_mhc':
             # Defined MHC region as chr6:25,000,000..35,000,000
             seqid = '6'
@@ -171,7 +92,7 @@ class Criteria(object):
     @classmethod
     def get_criteria_dict(cls, fid, fname, fnotes={}):
 
-        if(len(fnotes) > 0):
+        if(fnotes is not None and len(fnotes) > 0):
             criteria_dict = {'fid': fid, 'fname': fname, 'fnotes': fnotes}
         else:
             criteria_dict = {'fid': fid, 'fname': fname}
@@ -218,7 +139,7 @@ class Criteria(object):
         return props
 
     @classmethod
-    def fetch_overlapping_features(cls, build, seqid, start, end, idx=None, disease_id=None):
+    def fetch_overlapping_features(cls, build, seqid, start, end, idx=None, idx_type=None, disease_id=None):
         nbuild = build
         start_range = start
         end_range = end
@@ -255,9 +176,9 @@ class Criteria(object):
                                                                                     'chr_band',
                                                                                     'species'])
 
-        elastic = Search(qnested, idx=idx)
+        elastic = Search(qnested, idx=idx, idx_type=idx_type)
         res = elastic.search()
-        return res
+        return res.docs
 
     @classmethod
     def calculate_score(cls, disease_list):
@@ -311,4 +232,3 @@ class Criteria(object):
                 json_data = ''
         if line_num > 0:
             Loader().bulk_load(idx, idx_type, json_data)
-

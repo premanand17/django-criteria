@@ -1,16 +1,12 @@
 import logging
-import json
 from builtins import classmethod
 from elastic.search import ScanAndScroll, ElasticQuery, Search
 from elastic.query import Query
-from elastic.management.loaders.mapping import MappingProperties
-from elastic.management.loaders.loader import Loader
 from criteria.helper.criteria_manager import CriteriaManager
 from elastic.elastic_settings import ElasticSettings
-from data_pipeline.utils import IniParser
 from criteria.helper.criteria import Criteria
-from test.test_pyclbr import ClassMethodType
-from elastic.utils import ElasticUtils
+from region import utils
+from elastic.result import Document
 
 logger = logging.getLogger(__name__)
 
@@ -45,12 +41,11 @@ class GeneCriteria(Criteria):
             hits = resp_json['hits']['hits']
             global gl_result_container
             for hit in hits:
-                source = hit['_source']
-                source['_id'] = hit['_id']
-                result_container = cls.tag_feature_to_disease(source, section, config,
+                result_container = cls.tag_feature_to_disease(hit, section, config,
                                                               result_container=gl_result_container)
                 gl_result_container = result_container
-                print(len(gl_result_container))
+                if gl_result_container is not None:
+                    print(len(gl_result_container))
 
         query = cls.get_elastic_query(section, config)
 
@@ -58,12 +53,11 @@ class GeneCriteria(Criteria):
         cls.map_and_load(feature, section, config, gl_result_container)
 
     @classmethod
-    def cand_gene_in_study(cls, feature_doc, section=None, config=None, result_container={}):
+    def cand_gene_in_study(cls, hit, section=None, config=None, result_container={}):
 
         result_container_ = result_container
-        if config is None:
-            print('config is none')
-            config = IniParser.read_ini(ini_file='criteria.ini')
+        feature_doc = hit['_source']
+        feature_doc['_id'] = hit['_id']
 
         genes = feature_doc['genes']
         diseases = feature_doc['diseases']
@@ -72,7 +66,65 @@ class GeneCriteria(Criteria):
         first_author = author['name'] + ' ' + author['initials']
         print('Number of genes for study id ' + study_id + '  genes ' +
               str(len(genes)) + str(diseases) + first_author)
-        criteria_dict = cls.get_criteria_dict(study_id, first_author)
+
+        result_container_populated = cls.populate_container(study_id,
+                                                            first_author,
+                                                            fnotes=None, genes=genes,
+                                                            diseases=diseases,
+                                                            result_container=result_container_)
+        return result_container_populated
+
+    @classmethod
+    def cand_gene_in_region(cls, hit, section=None, config=None, result_container={}):
+
+        feature_doc = hit['_source']
+        feature_doc['_id'] = hit['_id']
+
+        genes = []
+        if 'genes' in feature_doc:
+            genes = feature_doc['genes']
+
+        region_index = ElasticSettings.idx('REGION', idx_type='STUDY_HITS')
+        (region_idx, region_idx_type) = region_index.split('/')
+
+        print(region_idx + '  ' + region_idx_type)
+
+        gene_dict = cls.get_gene_docs_by_ensembl_id(genes, sources=['chromosome', 'start', 'stop'])
+
+        for gene in gene_dict:
+            # get position
+            gene_doc = gene_dict[gene]
+            print(gene_doc.__dict__)
+            build = "38"  # get it from index name genes_hg38_v0.0.2 TODO
+            seqid = getattr(gene_doc, "chromosome")
+            start = getattr(gene_doc, "start")
+            stop = getattr(gene_doc, "stop")
+            # check if they overlap a region
+            overlapping_region_docs = cls.fetch_overlapping_features(build, seqid, start, stop,
+                                                                     idx=region_idx, idx_type=region_idx_type)
+            print(len(overlapping_region_docs))
+            region_docs = utils.Region.hits_to_regions(overlapping_region_docs)
+            for region_doc in region_docs:
+                print(region_doc.__dict__)
+                region_id = getattr(region_doc, "region_id")
+                region_name = getattr(region_doc, "region_name")
+                diseases = getattr(region_doc, "tags")['disease']
+
+                result_container_populated = cls.populate_container(region_id,
+                                                                    region_name,
+                                                                    fnotes=None, genes=[gene],
+                                                                    diseases=diseases,
+                                                                    result_container=result_container)
+                result_container = result_container_populated
+
+        return result_container
+
+    @classmethod
+    def populate_container(cls, fid, fname, fnotes=None, genes=None, diseases=None, result_container={}):
+
+        result_container_ = result_container
+
+        criteria_dict = cls.get_criteria_dict(fid, fname, fnotes)
 
         dis_dict = dict()
         criteria_disease_dict = {}
@@ -108,107 +160,52 @@ class GeneCriteria(Criteria):
         return result_container_
 
     @classmethod
-    def is_gene_in_mhc(cls, feature_doc, section=None, config=None, result_container={}):
-        feature_id = feature_doc['_id']
+    def is_gene_in_mhc(cls, hit, section=None, config=None, result_container={}):
+
+        feature_id = hit['_id']
         print(feature_id)
         result_container_ = cls.tag_feature_to_all_diseases(feature_id, section, config, result_container)
         return result_container_
 
-#     @classmethod
-#     def gene_in_region(cls, feature_doc, config=None, result_container={}):
-#
-#         result_container_ = result_container
-#         if config is None:
-#             print('config is none')
-#             config = IniParser.read_ini(ini_file='criteria.ini')
-#
-#         region_name = getattr(feature_doc, 'region')
-#         disease = getattr(feature_doc, 'disease')
-#         region_id = feature_doc.doc_id()
-# #         genes = feature_doc['genes']
-# #         diseases = feature_doc['diseases']
-# #         study_id = feature_doc['study_id']
-# #         author = feature_doc['authors'][0]
-# 
-#         print('Region id and name ' + region_id + '  name ' + region_name + 'disease ' + disease)
-#         criteria_dict = cls.get_criteria_dict(region_id, region_name)
-# 
-#         dis_dict = dict()
-#         criteria_disease_dict = {}
-# 
-#         dis_dict[disease] = []
-#         if len(result_container_.get(gene, {})) > 0:
-# 
-#             criteria_disease_dict = result_container_[gene]
-#             criteria_disease_dict = cls.get_criteria_disease_dict(diseases, criteria_dict,
-#                                                                   criteria_disease_dict)
-# 
-#             result_container_[gene] = criteria_disease_dict
-#         else:
-#             criteria_disease_dict = {}
-#             criteria_disease_dict = cls.get_criteria_disease_dict(diseases, criteria_dict,
-#                                                                   criteria_disease_dict)
-#             result_container_[gene] = criteria_disease_dict
-# 
-#         return result_container_
-
     @classmethod
-    def gene_in_region(cls, feature_src, config=None, details=True, disease_id=None):
-        '''Function to process the criteria cand_gene_in_region'''
+    def gene_in_region(cls, hit, section=None, config=None, result_container={}):
+
+        try:
+            padded_region_doc = utils.Region.pad_region_doc(Document(hit))
+        except:
+            logger.warn('Region padding error ')
+            print(hit)
+            return result_container
+
+        # 'build_info': {'end': 22411939, 'seqid': '1', 'build': 38, 'start': 22326008}, 'region_id': '1p36.12_008'}
+        region_id = getattr(padded_region_doc, "region_id")
+        region_name = getattr(padded_region_doc, "region_name")
+        build_info = getattr(padded_region_doc, "build_info")
+        diseases = getattr(padded_region_doc, "tags")['disease']
+        seqid = build_info['seqid']
+        start = build_info['start']
+        end = build_info['end']
+
+        print('Region id ' + region_id + 'Region name ' + region_name)
         gene_index = ElasticSettings.idx('GENE', idx_type='GENE')
-        region_index = ElasticSettings.idx('REGIONS')
+        elastic = Search.range_overlap_query(seqid=seqid, start_range=start, end_range=end,
+                                             idx=gene_index, field_list=['start', 'stop', '_id'],
+                                             seqid_param="chromosome",
+                                             end_param="stop")
+        result_docs = elastic.search().docs
 
-        if type(feature_src) == dict:
-            feature_id = str(feature_src['_id'])
-        else:
-            feature_id = feature_src
-            feature_src = dict()
-            query = ElasticQuery(Query.ids([feature_id]))
-            elastic = Search(query, idx=gene_index)
-            docs = elastic.search().docs
+        genes = set()
+        for doc in result_docs:
+            genes.add(doc.doc_id())
 
-            if(len(docs) == 1):
-                doc = docs[0]
-                feature_src['chromosome'] = getattr(doc, 'chromosome')
-                feature_src['start'] = getattr(doc, 'start')
-                feature_src['stop'] = getattr(doc, 'stop')
+        print(genes)
 
-        result = cls.fetch_overlapping_features('38', feature_src['chromosome'],
-                                                feature_src['start'],
-                                                feature_src['stop'],
-                                                idx=region_index, disease_id=disease_id)
-
-        disease_loc_docs = cls.fetch_disease_locus(result)
-
-        if details is False:
-            disease_list = {getattr(doc, 'disease') for doc in disease_loc_docs}
-            return disease_list
-        else:
-            locus_dict = dict()
-            disease_tags = set()
-            for doc in disease_loc_docs:
-                disease = getattr(doc, 'disease')
-                disease_tags.add(disease)
-                region_name = getattr(doc, 'region')
-                region_id = doc.doc_id()
-
-                tmp_dict = {'fid': region_id, 'fname': region_name}
-                if disease in locus_dict:
-                    existing_list = locus_dict[disease]
-                    existing_list.append(tmp_dict)
-                    locus_dict[disease] = existing_list
-                else:
-                    new_list = []
-                    new_list.append(tmp_dict)
-                    locus_dict[disease] = new_list
-
-            if(len(locus_dict) > 0):
-                score = cls.calculate_score(list(disease_tags))
-                locus_dict['score'] = score
-                locus_dict['disease_tags'] = list(disease_tags)
-                return locus_dict
-            else:
-                return None
+        result_container_populated = cls.populate_container(region_id,
+                                                            region_name,
+                                                            fnotes=None, genes=genes,
+                                                            diseases=diseases,
+                                                            result_container=result_container)
+        return result_container_populated
 
     @classmethod
     def fetch_disease_locus(cls, hits_docs):
@@ -230,3 +227,11 @@ class GeneCriteria(Criteria):
 
         return disease_loc_docs
 
+    @classmethod
+    def get_gene_docs_by_ensembl_id(cls, ens_ids, sources=None):
+        ''' Get the gene symbols for the corresponding array of ensembl IDs.
+        A dictionary is returned with the key being the ensembl ID and the
+        value the gene document. '''
+        query = ElasticQuery(Query.ids(ens_ids), sources=sources)
+        elastic = Search(query, idx=ElasticSettings.idx('GENE', idx_type='GENE'), size=len(ens_ids))
+        return {doc.doc_id(): doc for doc in elastic.search().docs}
