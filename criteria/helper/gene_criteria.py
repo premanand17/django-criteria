@@ -44,8 +44,6 @@ class GeneCriteria(Criteria):
                 result_container = cls.tag_feature_to_disease(hit, section, config,
                                                               result_container=gl_result_container)
                 gl_result_container = result_container
-                if gl_result_container is not None:
-                    print(len(gl_result_container))
 
         query = cls.get_elastic_query(section, config)
 
@@ -63,9 +61,8 @@ class GeneCriteria(Criteria):
         diseases = feature_doc['diseases']
         study_id = feature_doc['study_id']
         author = feature_doc['authors'][0]
+
         first_author = author['name'] + ' ' + author['initials']
-        print('Number of genes for study id ' + study_id + '  genes ' +
-              str(len(genes)) + str(diseases) + first_author)
 
         result_container_populated = cls.populate_container(study_id,
                                                             first_author,
@@ -102,8 +99,12 @@ class GeneCriteria(Criteria):
             # check if they overlap a region
             overlapping_region_docs = cls.fetch_overlapping_features(build, seqid, start, stop,
                                                                      idx=region_idx, idx_type=region_idx_type)
-            print(len(overlapping_region_docs))
+
             region_docs = utils.Region.hits_to_regions(overlapping_region_docs)
+
+            if(region_docs is None or len(region_docs) == 0):
+                continue
+
             for region_doc in region_docs:
                 print(region_doc.__dict__)
                 region_id = getattr(region_doc, "region_id")
@@ -155,7 +156,7 @@ class GeneCriteria(Criteria):
         # Get class from globals and create an instance
         m = globals()[feature_class]()
         # Get the function (from the instance) that we need to call
-        func = getattr(m, section)
+        func = getattr(m, section._name)
         result_container_ = func(feature_doc, section, config, result_container=result_container)
         return result_container_
 
@@ -163,7 +164,6 @@ class GeneCriteria(Criteria):
     def is_gene_in_mhc(cls, hit, section=None, config=None, result_container={}):
 
         feature_id = hit['_id']
-        print(feature_id)
         result_container_ = cls.tag_feature_to_all_diseases(feature_id, section, config, result_container)
         return result_container_
 
@@ -174,7 +174,7 @@ class GeneCriteria(Criteria):
             padded_region_doc = utils.Region.pad_region_doc(Document(hit))
         except:
             logger.warn('Region padding error ')
-            print(hit)
+
             return result_container
 
         # 'build_info': {'end': 22411939, 'seqid': '1', 'build': 38, 'start': 22326008}, 'region_id': '1p36.12_008'}
@@ -186,7 +186,6 @@ class GeneCriteria(Criteria):
         start = build_info['start']
         end = build_info['end']
 
-        print('Region id ' + region_id + 'Region name ' + region_name)
         gene_index = ElasticSettings.idx('GENE', idx_type='GENE')
         elastic = Search.range_overlap_query(seqid=seqid, start_range=start, end_range=end,
                                              idx=gene_index, field_list=['start', 'stop', '_id'],
@@ -197,8 +196,6 @@ class GeneCriteria(Criteria):
         genes = set()
         for doc in result_docs:
             genes.add(doc.doc_id())
-
-        print(genes)
 
         result_container_populated = cls.populate_container(region_id,
                                                             region_name,

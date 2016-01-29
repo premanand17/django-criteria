@@ -3,6 +3,7 @@ from data_pipeline.utils import IniParser
 import os
 from builtins import classmethod
 import sys
+from disease import utils
 
 # Get an instance of a logger
 logger = logging.getLogger(__name__)
@@ -23,15 +24,14 @@ class CriteriaManager():
     @classmethod
     def get_available_diseases(cls, tier=None):
         # Get it from elastic later
-        tier1 = ['AS', 'ATD', 'CEL', 'CRO', 'JIA', 'MS', 'PBC', 'PSO', 'RA', 'SLE', 'T1D', 'UC']
-        tier2 = ['AA', 'IGE', 'IBD', 'NAR', 'PSC', 'SJO', 'SSC', 'VIT']
+        (main_codes, other_codes) = utils.Disease.get_site_disease_codes()
 
-        if tier == 1:
-            return tier1
-        elif tier == 2:
-            return tier2
+        if tier == 0:
+            return main_codes
+        elif tier == 1:
+            return other_codes
         else:
-            return tier1 + tier2
+            return (main_codes, other_codes)
 
     @classmethod
     def get_available_criterias(cls, feature=None, config=None):
@@ -56,7 +56,6 @@ class CriteriaManager():
                         criteria_list.append(section_name)
                         criteria_dict[section_config['feature']] = criteria_list
 
-        print(criteria_dict)
         return criteria_dict
 
     @classmethod
@@ -68,21 +67,17 @@ class CriteriaManager():
             config = cls.get_criteria_config()
 
         available_criterias = cls.get_available_criterias(feature)[feature]
-        print(available_criterias)
-
-        if show:
-            return available_criterias
 
         criterias_to_process = []
         if criteria is None:
             criterias_to_process = available_criterias
         else:
             criterias_list = criteria.split(',')
-            print(criterias_list)
             criterias_to_process = [criteria.strip() for criteria in criterias_list
                                     if criteria.strip() in available_criterias]
 
-        print(criterias_to_process)
+        if show:
+            return criterias_to_process
 
         for section in criterias_to_process:
             if feature == 'gene':

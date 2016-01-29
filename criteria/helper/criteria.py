@@ -45,9 +45,8 @@ class Criteria(object):
     @classmethod
     def tag_feature_to_all_diseases(cls, feature_id, section, config, result_container={}):
 
-        all_diseases = CriteriaManager.get_available_diseases()
-        print(feature_id)
-        print(all_diseases)
+        (main_codes, other_codes) = CriteriaManager.get_available_diseases()
+        all_diseases = main_codes + other_codes
 
         result_container_ = result_container
         if config is None:
@@ -183,8 +182,7 @@ class Criteria(object):
     @classmethod
     def calculate_score(cls, disease_list):
 
-        core_diseases = CriteriaManager.get_available_diseases(1)
-        other_diseases = CriteriaManager.get_available_diseases(2)
+        (core_diseases, other_diseases) = CriteriaManager.get_available_diseases()
 
         score = 0
         for disease_key in disease_list:
