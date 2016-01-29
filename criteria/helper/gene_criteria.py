@@ -16,39 +16,39 @@ class GeneCriteria(Criteria):
     ''' GeneCriteria class define functions for building gene index type within criteria index
 
     '''
-
-    @classmethod
-    def process_gene_criteria(cls, feature, section, config):
-
-        if config is None:
-            config = CriteriaManager().get_criteria_config()
-
-        section_config = config[section]
-        source_idx = ElasticSettings.idx(section_config['source_idx'])
-        source_idx_type = section_config['source_idx_type']
-
-        if source_idx_type is not None:
-            source_idx = ElasticSettings.idx(section_config['source_idx'], idx_type=section_config['source_idx_type'])
-        else:
-            source_idx_type = ''
-
-        logger.warn(source_idx + ' ' + source_idx_type)
-
-        global gl_result_container
-        gl_result_container = {}
-
-        def process_hits(resp_json):
-            hits = resp_json['hits']['hits']
-            global gl_result_container
-            for hit in hits:
-                result_container = cls.tag_feature_to_disease(hit, section, config,
-                                                              result_container=gl_result_container)
-                gl_result_container = result_container
-
-        query = cls.get_elastic_query(section, config)
-
-        ScanAndScroll.scan_and_scroll(source_idx, call_fun=process_hits, query=query)
-        cls.map_and_load(feature, section, config, gl_result_container)
+# 
+#     @classmethod
+#     def process_gene_criteria(cls, feature, section, config):
+# 
+#         if config is None:
+#             config = CriteriaManager().get_criteria_config()
+# 
+#         section_config = config[section]
+#         source_idx = ElasticSettings.idx(section_config['source_idx'])
+#         source_idx_type = section_config['source_idx_type']
+# 
+#         if source_idx_type is not None:
+#             source_idx = ElasticSettings.idx(section_config['source_idx'], idx_type=section_config['source_idx_type'])
+#         else:
+#             source_idx_type = ''
+# 
+#         logger.warn(source_idx + ' ' + source_idx_type)
+# 
+#         global gl_result_container
+#         gl_result_container = {}
+# 
+#         def process_hits(resp_json):
+#             hits = resp_json['hits']['hits']
+#             global gl_result_container
+#             for hit in hits:
+#                 result_container = cls.tag_feature_to_disease(hit, section, config,
+#                                                               result_container=gl_result_container)
+#                 gl_result_container = result_container
+# 
+#         query = cls.get_elastic_query(section, config)
+# 
+#         ScanAndScroll.scan_and_scroll(source_idx, call_fun=process_hits, query=query)
+#         cls.map_and_load(feature, section, config, gl_result_container)
 
     @classmethod
     def cand_gene_in_study(cls, hit, section=None, config=None, result_container={}):
@@ -151,8 +151,9 @@ class GeneCriteria(Criteria):
         return result_container_
 
     @classmethod
-    def tag_feature_to_disease(cls, feature_doc, section, config, result_container={}):
-        feature_class = cls.__name__
+    def tag_feature_to_disease(cls, feature_class, feature_doc, section, config, result_container={}):
+        if feature_class is None:
+            feature_class = cls.__name__
         # Get class from globals and create an instance
         m = globals()[feature_class]()
         # Get the function (from the instance) that we need to call

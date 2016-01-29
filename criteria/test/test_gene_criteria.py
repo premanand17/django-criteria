@@ -218,14 +218,14 @@ class GeneCriteriaTest(TestCase):
         config = IniParser().read_ini(MY_INI_FILE)
         section = config["gene_in_region"]
 
-        result1 = GeneCriteria.tag_feature_to_disease(self.region_doc_full, section, config, {})
+        result1 = GeneCriteria.tag_feature_to_disease('GeneCriteria', self.region_doc_full, section, config, {})
         # one region tagged to UC and IBD
         expected_result = {'ENSG00000279625': {'IBD': [{'fname': '1p36.12', 'fid': '1p36.12_008'}],
                                                'UC': [{'fname': '1p36.12', 'fid': '1p36.12_008'}]}}
         self.assertEqual(result1, expected_result, 'Got back expected result')
 
         section = config["cand_gene_in_study"]
-        result2 = GeneCriteria.tag_feature_to_disease(self.study_doc_full, section, config, {})
+        result2 = GeneCriteria.tag_feature_to_disease('GeneCriteria', self.study_doc_full, section, config, {})
         expected_result = {'ENSG00000160801': {'RA': [{'fname': 'Clatfield XY', 'fid': 'GDXHsS00005'}],
                                                'T1D': [{'fname': 'Clatfield XY', 'fid': 'GDXHsS00005'}]},
                            'ENSG00000163599': {'RA': [{'fname': 'Clatfield XY', 'fid': 'GDXHsS00005'}],

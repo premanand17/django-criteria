@@ -1,6 +1,5 @@
-from elastic.search import Search, ElasticQuery
+from elastic.search import Search, ElasticQuery, ScanAndScroll
 from elastic.query import BoolQuery, RangeQuery, OrFilter, Query
-from criteria.helper.criteria_manager import CriteriaManager
 from data_pipeline.utils import IniParser
 from elastic.management.loaders.mapping import MappingProperties
 from elastic.management.loaders.loader import Loader
@@ -8,10 +7,47 @@ from elastic.utils import ElasticUtils
 import json
 
 import logging
+from elastic.elastic_settings import ElasticSettings
+from criteria.helper.criteria_manager import CriteriaManager
 logger = logging.getLogger(__name__)
 
 
-class Criteria(object):
+class Criteria():
+
+    @classmethod
+    def process_criteria(cls, feature, section, config):
+
+        if config is None:
+            config = CriteriaManager.get_criteria_config()
+
+        section_config = config[section]
+        source_idx = ElasticSettings.idx(section_config['source_idx'])
+        source_idx_type = section_config['source_idx_type']
+
+        if source_idx_type is not None:
+            source_idx = ElasticSettings.idx(section_config['source_idx'], idx_type=section_config['source_idx_type'])
+        else:
+            source_idx_type = ''
+
+        logger.warn(source_idx + ' ' + source_idx_type)
+
+        global gl_result_container
+        gl_result_container = {}
+
+        def process_hits(resp_json):
+            hits = resp_json['hits']['hits']
+            feature_class = feature.title() + 'Criteria'
+
+            global gl_result_container
+            for hit in hits:
+                result_container = cls.tag_feature_to_disease(feature_class, hit, section, config,
+                                                              result_container=gl_result_container)
+                gl_result_container = result_container
+
+        query = cls.get_elastic_query(section, config)
+
+        ScanAndScroll.scan_and_scroll(source_idx, call_fun=process_hits, query=query)
+        cls.map_and_load(feature, section, config, gl_result_container)
 
     @classmethod
     def get_elastic_query(cls, section=None, config=None):

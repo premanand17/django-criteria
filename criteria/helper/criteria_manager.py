@@ -2,7 +2,6 @@ import logging
 from data_pipeline.utils import IniParser
 import os
 from builtins import classmethod
-import sys
 from disease import utils
 
 # Get an instance of a logger
@@ -61,7 +60,7 @@ class CriteriaManager():
     @classmethod
     def process_criterias(cls, feature, criteria=None, config=None, show=False):
 
-        from criteria.helper.gene_criteria import GeneCriteria
+        from criteria.helper.criteria import Criteria
 
         if config is None:
             config = cls.get_criteria_config()
@@ -82,7 +81,8 @@ class CriteriaManager():
         for section in criterias_to_process:
             if feature == 'gene':
                 print('Call to build criteria gene index')
-                GeneCriteria.process_gene_criteria(feature, section, config)
+#                 GeneCriteria.process_gene_criteria(feature, section, config)
+                Criteria.process_criteria(feature, section, config)
             elif feature == 'marker':
                 print('Call to build criteria marker index')
             elif feature == 'region':
