@@ -1,8 +1,7 @@
 import logging
 from builtins import classmethod
-from elastic.search import ScanAndScroll, ElasticQuery, Search
+from elastic.search import ElasticQuery, Search
 from elastic.query import Query
-from criteria.helper.criteria_manager import CriteriaManager
 from elastic.elastic_settings import ElasticSettings
 from criteria.helper.criteria import Criteria
 from region import utils
@@ -16,39 +15,6 @@ class GeneCriteria(Criteria):
     ''' GeneCriteria class define functions for building gene index type within criteria index
 
     '''
-# 
-#     @classmethod
-#     def process_gene_criteria(cls, feature, section, config):
-# 
-#         if config is None:
-#             config = CriteriaManager().get_criteria_config()
-# 
-#         section_config = config[section]
-#         source_idx = ElasticSettings.idx(section_config['source_idx'])
-#         source_idx_type = section_config['source_idx_type']
-# 
-#         if source_idx_type is not None:
-#             source_idx = ElasticSettings.idx(section_config['source_idx'], idx_type=section_config['source_idx_type'])
-#         else:
-#             source_idx_type = ''
-# 
-#         logger.warn(source_idx + ' ' + source_idx_type)
-# 
-#         global gl_result_container
-#         gl_result_container = {}
-# 
-#         def process_hits(resp_json):
-#             hits = resp_json['hits']['hits']
-#             global gl_result_container
-#             for hit in hits:
-#                 result_container = cls.tag_feature_to_disease(hit, section, config,
-#                                                               result_container=gl_result_container)
-#                 gl_result_container = result_container
-# 
-#         query = cls.get_elastic_query(section, config)
-# 
-#         ScanAndScroll.scan_and_scroll(source_idx, call_fun=process_hits, query=query)
-#         cls.map_and_load(feature, section, config, gl_result_container)
 
     @classmethod
     def cand_gene_in_study(cls, hit, section=None, config=None, result_container={}):
@@ -66,7 +32,7 @@ class GeneCriteria(Criteria):
 
         result_container_populated = cls.populate_container(study_id,
                                                             first_author,
-                                                            fnotes=None, genes=genes,
+                                                            fnotes=None, features=genes,
                                                             diseases=diseases,
                                                             result_container=result_container_)
         return result_container_populated
@@ -113,7 +79,7 @@ class GeneCriteria(Criteria):
 
                 result_container_populated = cls.populate_container(region_id,
                                                                     region_name,
-                                                                    fnotes=None, genes=[gene],
+                                                                    fnotes=None, features=[gene],
                                                                     diseases=diseases,
                                                                     result_container=result_container)
                 result_container = result_container_populated
@@ -121,43 +87,12 @@ class GeneCriteria(Criteria):
         return result_container
 
     @classmethod
-    def populate_container(cls, fid, fname, fnotes=None, genes=None, diseases=None, result_container={}):
-
-        result_container_ = result_container
-
-        criteria_dict = cls.get_criteria_dict(fid, fname, fnotes)
-
-        dis_dict = dict()
-        criteria_disease_dict = {}
-        for gene in genes:
-            if gene is None:
-                continue
-
-            for disease in diseases:
-                dis_dict[disease] = []
-                if len(result_container_.get(gene, {})) > 0:
-
-                    criteria_disease_dict = result_container_[gene]
-                    criteria_disease_dict = cls.get_criteria_disease_dict(diseases, criteria_dict,
-                                                                          criteria_disease_dict)
-
-                    result_container_[gene] = criteria_disease_dict
-                else:
-                    criteria_disease_dict = {}
-                    criteria_disease_dict = cls.get_criteria_disease_dict(diseases, criteria_dict,
-                                                                          criteria_disease_dict)
-                    result_container_[gene] = criteria_disease_dict
-
-        return result_container_
-
-    @classmethod
-    def tag_feature_to_disease(cls, feature_class, feature_doc, section, config, result_container={}):
-        if feature_class is None:
-            feature_class = cls.__name__
+    def tag_feature_to_disease(cls, feature_doc, section, config, result_container={}):
+        feature_class = cls.__name__
         # Get class from globals and create an instance
         m = globals()[feature_class]()
         # Get the function (from the instance) that we need to call
-        func = getattr(m, section._name)
+        func = getattr(m, section)
         result_container_ = func(feature_doc, section, config, result_container=result_container)
         return result_container_
 
@@ -175,7 +110,6 @@ class GeneCriteria(Criteria):
             padded_region_doc = utils.Region.pad_region_doc(Document(hit))
         except:
             logger.warn('Region padding error ')
-
             return result_container
 
         # 'build_info': {'end': 22411939, 'seqid': '1', 'build': 38, 'start': 22326008}, 'region_id': '1p36.12_008'}
@@ -200,7 +134,7 @@ class GeneCriteria(Criteria):
 
         result_container_populated = cls.populate_container(region_id,
                                                             region_name,
-                                                            fnotes=None, genes=genes,
+                                                            fnotes=None, features=genes,
                                                             diseases=diseases,
                                                             result_container=result_container)
         return result_container_populated

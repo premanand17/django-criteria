@@ -1,83 +1,250 @@
 import logging
 from builtins import classmethod
-from elastic.search import ScanAndScroll, ElasticQuery, Search
-from elastic.query import Query, BoolQuery, RangeQuery
-from data_pipeline.helper import marker
+from region import utils
+from elastic.result import Document
+from criteria.helper.criteria import Criteria
+from django.conf import settings
+import pyRserve
+from elastic.query import BoolQuery, Query
+from elastic.search import ElasticQuery, Search
+from elastic.elastic_settings import ElasticSettings
+import json
 
 logger = logging.getLogger(__name__)
 
 
-class MarkerCriteria():
+class MarkerCriteria(Criteria):
+    global counter
+    counter = 1
 
     ''' MarkerCriteria class define functions for building marker index type within criteria index
 
     '''
-    global result_container
-    result_container = {}
+    @classmethod
+    def is_an_index_snp(cls, hit, section=None, config=None, result_container={}):
+
+        feature_doc = hit['_source']
+        feature_doc['_id'] = hit['_id']
+
+        marker = None
+        if 'marker' in feature_doc:
+            marker = feature_doc['marker']
+
+        disease = None
+        if 'disease' in feature_doc:
+            disease = feature_doc['disease']
+
+        status = None
+        if 'status' in feature_doc:
+            status = feature_doc['status']
+
+        if marker is None or disease is None or status is None:
+            return result_container
+
+        if status != 'N':
+            return result_container
+
+        disease_loci = feature_doc["disease_locus"].lower()
+
+        if disease_loci == 'tbc':
+            return result_container
+
+        region_docs = utils.Region.hits_to_regions([Document(hit)])
+
+        for region_doc in region_docs:
+                region_id = getattr(region_doc, "region_id")
+                region_name = getattr(region_doc, "region_name")
+
+                result_container_populated = cls.populate_container(region_id,
+                                                                    region_name,
+                                                                    fnotes=None, features=[marker],
+                                                                    diseases=[disease],
+                                                                    result_container=result_container)
+                result_container = result_container_populated
+
+        return result_container
 
     @classmethod
-    def process_marker_criteria(cls, stage_output_file, *args, **kwargs):
-        print('=========process_marker_criteria called=================')
-
-        print('stage_output_file : ' + str(stage_output_file))
-        section = kwargs['section']
-        config = None
-        if 'config' in kwargs:
-            config = kwargs['config']
-
-        default_section = config['DEFAULT']
-        region_index = default_section['REGION_IDX']
-
-        def process_hits(resp_json):
-            hits = resp_json['hits']['hits']
-            global result_container
-            marker_container = set()
-
-            for hit in hits:
-                marker_container.add(hit['_source']['marker'])
-
-            for marker_id in marker_container:
-                disease_ids = cls.tag_feature_to_disease(marker_id, section, config)
-                if (len(disease_ids) > 0):
-                    print(marker_id + ' ' + str(section._name) + ' ' + str(disease_ids))
-
-                    if marker_id not in result_container:
-                        result_container[marker_id] = [{str(section._name): list(disease_ids)}]
-                    else:
-                        existing_criteria = result_container[marker_id]
-                        existing_criteria.append({str(section._name): list(disease_ids)})
-                        result_container[marker_id] = existing_criteria
-
-        qbool = BoolQuery(must_arr=[RangeQuery("tier", lt=3)])
-        query = ElasticQuery.filtered_bool(Query.match_all(), qbool)
-        ScanAndScroll.scan_and_scroll(region_index, call_fun=process_hits, idx_type='hits', query=query)
-        # ScanAndScroll.scan_and_scroll(region_index, call_fun=process_hits)
-        # CriteriaUtils.create_json_output_criteria(result_container, stage_output_file)
+    def tag_feature_to_disease(cls, feature_doc, section, config, result_container={}):
+        feature_class = cls.__name__
+        # Get class from globals and create an instance
+        m = globals()[feature_class]()
+        # Get the function (from the instance) that we need to call
+        func = getattr(m, section)
+        result_container_ = func(feature_doc, section, config, result_container=result_container)
+        return result_container_
 
     @classmethod
-    def is_an_index_snp(cls, feature_src, section, config=None):
-        '''Function to process the criteria cand_gene_in_study'''
-        region_index = config['DEFAULT']['REGION_IDX']
+    def is_marker_in_mhc(cls, hit, section=None, config=None, result_container={}):
 
-        if type(feature_src) == dict:
-            feature_id = str(feature_src['_id'])
+        feature_id = hit['_id']
+        result_container_ = cls.tag_feature_to_all_diseases(feature_id, section, config, result_container)
+        return result_container_
+
+    @classmethod
+    def rsq_with_index_snp(cls, hit, section=None, config=None, result_container={}):
+        feature_doc = hit['_source']
+        feature_doc['_id'] = hit['_id']
+
+        marker1 = None
+        if 'marker' in feature_doc:
+            marker1 = feature_doc['marker']
+
+        disease = None
+        if 'disease' in feature_doc:
+            disease = feature_doc['disease']
+
+        status = None
+        if 'status' in feature_doc:
+            status = feature_doc['status']
+
+        if marker1 is None or disease is None or status is None:
+            return result_container
+
+        if status != 'N':
+            return result_container
+
+        disease_loci = feature_doc["disease_locus"].lower()
+
+        if disease_loci == 'tbc':
+            return result_container
+
+        dil_study_id = feature_doc["dil_study_id"]
+
+        global counter
+        print('=========================' + str(counter))
+        counter = counter + 1
+
+        # get the markers that is in ld with the above marker and add it as fid, fname
+        # http://tim-rh3:8000/rest/ld/?build=GRCh38&dataset=--EUR--&dprime=0&format=json&m1=rs6679677&rsq=0.8
+        # query marker1 over the marker index to get the seqid and call the ld_run wiht right parameters
+        # for the marker2 that is in ld with marker1, tag it with the right disease and studyid
+        # query study index with the above dil_study_id to get the author name
+
+        query = ElasticQuery(BoolQuery(must_arr=[Query.term("id", marker1)]), sources=['seqid', 'start'])
+        elastic = Search(search_query=query, idx=ElasticSettings.idx('MARKER', 'MARKER'), size=1)
+        docs = elastic.search().docs
+        marker_doc = None
+
+        if docs is not None and len(docs) > 0:
+            marker_doc = elastic.search().docs[0]
+
+        if marker_doc is None:
+            return result_container
+
+        seqid = getattr(marker_doc, 'seqid')
+
+        rserve = getattr(settings, 'RSERVE')
+
+        conn = pyRserve.connect(host=rserve.get('HOST'), port=rserve.get('PORT'))
+        dataset = 'EUR'
+        rsq = 0.8
+
+        ld_str = conn.r.ld_run(dataset, seqid, marker1,
+                               dprime=0, rsq=rsq)
+        ld_str = ld_str.replace('D.prime', 'dprime').replace('R.squared', 'rsquared')
+        conn.close()
+        ld = json.loads(str(ld_str))
+
+        if 'error' in ld:
+            return result_container
+
+        marker_list = ld['ld']
+
+        if marker_list is None or len(marker_list) == 0:
+            return result_container
+
+        for marker_dict in marker_list:
+
+            marker2 = marker_dict['marker2']
+            rsquared = marker_dict['rsquared']
+
+            marker_id = marker1
+            marker_name = marker1
+
+            query = ElasticQuery(Query.ids([dil_study_id]))
+            elastic = Search(search_query=query, idx=ElasticSettings.idx('STUDY', 'STUDY'), size=1)
+            study_doc = elastic.search().docs[0]
+            author = getattr(study_doc, 'authors')[0]
+            first_author = author['name'] + ' ' + author['initials']
+            fnotes = {'linkdata': 'rsq', 'linkvalue': rsquared, 'linkid': dil_study_id, 'linkname': first_author}
+
+            result_container_populated = cls.populate_container(marker_id,
+                                                                marker_name,
+                                                                fnotes=fnotes, features=[marker2],
+                                                                diseases=[disease],
+                                                                result_container=result_container)
+
+            result_container = result_container_populated
+
+        return result_container
+
+    @classmethod
+    def marker_is_gwas_significant(cls, hit, section=None, config=None, result_container={}):
+        gw_sig_p = 0.00000005
+        feature_doc = hit['_source']
+        feature_doc['_id'] = hit['_id']
+
+        marker = None
+        if 'marker' in feature_doc:
+            marker = feature_doc['marker']
+
+        disease = None
+        if 'disease' in feature_doc:
+            disease = feature_doc['disease']
+
+        status = None
+        if 'status' in feature_doc:
+            status = feature_doc['status']
+
+        if marker is None or disease is None or status is None:
+            return result_container
+
+        if status != 'N':
+            return result_container
+
+        disease_loci = feature_doc["disease_locus"].lower()
+
+        if disease_loci == 'tbc':
+            return result_container
+
+        dil_study_id = feature_doc["dil_study_id"]
+
+        p_val_to_compare = None
+        combined_p_val = feature_doc["p_values"]["combined"]
+        discovery_p_val = feature_doc["p_values"]["discovery"]
+        replication_p_val = feature_doc["p_values"]["replication"]
+
+        if combined_p_val is not None:
+            p_val_to_compare = combined_p_val
+
+        if p_val_to_compare is None:
+            p_val_to_compare = discovery_p_val
+
+        if p_val_to_compare is None:
+            p_val_to_compare = replication_p_val
+
+        if p_val_to_compare is None:
+            return result_container
+
+        global counter
+        print('=========================' + str(counter))
+        counter = counter + 1
+
+        p_val_to_compare = float(p_val_to_compare)
+        if p_val_to_compare < gw_sig_p:
+            query = ElasticQuery(Query.ids([dil_study_id]))
+            elastic = Search(search_query=query, idx=ElasticSettings.idx('STUDY', 'STUDY'), size=1)
+            study_doc = elastic.search().docs[0]
+            author = getattr(study_doc, 'authors')[0]
+            first_author = author['name'] + ' ' + author['initials']
+            fnotes = {'linkdata': 'pval', 'linkvalue': p_val_to_compare,
+                      'linkid': dil_study_id, 'linkname': first_author}
+            result_container_populated = cls.populate_container(dil_study_id,
+                                                                first_author,
+                                                                fnotes=fnotes, features=[marker],
+                                                                diseases=[disease],
+                                                                result_container=result_container)
+            return result_container_populated
         else:
-            feature_id = feature_src
-
-        qbool = BoolQuery(must_arr=[RangeQuery("tier", lt=3),
-                                    Query.term("marker", feature_id), Query.term("status", "n")])
-        query = ElasticQuery.filtered_bool(Query.match_all(), qbool, sources=['disease', 'tier', 'status', 'marker'])
-        elastic = Search(query, idx=region_index)
-        result = elastic.search()
-
-        disease_list = set()
-        for doc in result.docs:
-            tier = getattr(doc, 'tier')
-            status = getattr(doc, 'status')
-            marker = getattr(doc, 'marker')
-            disease = getattr(doc, 'disease')
-
-            if tier < 3 and status is 'N' and marker == feature_id:
-                disease_list.add(disease)
-
-        return disease_list
+            return result_container

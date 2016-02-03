@@ -4,21 +4,22 @@ from data_pipeline.utils import IniParser
 from elastic.management.loaders.mapping import MappingProperties
 from elastic.management.loaders.loader import Loader
 from elastic.utils import ElasticUtils
+from criteria.helper.criteria_manager import CriteriaManager
 import json
 
 import logging
+
 from elastic.elastic_settings import ElasticSettings
-from criteria.helper.criteria_manager import CriteriaManager
 logger = logging.getLogger(__name__)
 
 
 class Criteria():
 
     @classmethod
-    def process_criteria(cls, feature, section, config):
+    def process_criteria(cls, feature, section, config, sub_class):
 
         if config is None:
-            config = CriteriaManager.get_criteria_config()
+            config = CriteriaManager().get_criteria_config()
 
         section_config = config[section]
         source_idx = ElasticSettings.idx(section_config['source_idx'])
@@ -29,19 +30,17 @@ class Criteria():
         else:
             source_idx_type = ''
 
-        logger.warn(source_idx + ' ' + source_idx_type)
+        logger.warning(source_idx + ' ' + source_idx_type)
 
         global gl_result_container
         gl_result_container = {}
 
         def process_hits(resp_json):
             hits = resp_json['hits']['hits']
-            feature_class = feature.title() + 'Criteria'
-
             global gl_result_container
             for hit in hits:
-                result_container = cls.tag_feature_to_disease(feature_class, hit, section, config,
-                                                              result_container=gl_result_container)
+                result_container = sub_class.tag_feature_to_disease(hit, section, config,
+                                                                    result_container=gl_result_container)
                 gl_result_container = result_container
 
         query = cls.get_elastic_query(section, config)
@@ -156,14 +155,22 @@ class Criteria():
         ''' Create the mapping for alias indexing '''
         props = MappingProperties(idx_type)
         props.add_property("score", "integer")
-        props.add_property("disease_tags", "string")
-        available_diseases = CriteriaManager().get_available_diseases()
+        props.add_property("disease_tags", "string", index="not_analyzed")
+        props.add_property("qid", "string", index="not_analyzed")
+        (main_codes, other_codes) = CriteriaManager().get_available_diseases()
 
-        for disease in available_diseases:
+        for disease in main_codes + other_codes:
             criteria_tags = MappingProperties(disease)
             criteria_tags.add_property("fid", "string", index="not_analyzed")
             criteria_tags.add_property("fname", "string", index="not_analyzed")
-            criteria_tags.add_property("fnotes", "string", index="not_analyzed")
+
+            fnotes = MappingProperties('fnotes')
+            fnotes.add_property('linkid', "string", index="not_analyzed")
+            fnotes.add_property('linkname', "string", index="not_analyzed")
+            fnotes.add_property('linkdata', "string", index="not_analyzed")
+            fnotes.add_property('linkvalue', "string", index="not_analyzed")
+            criteria_tags.add_properties(fnotes)
+
             props.add_properties(criteria_tags)
 
         ''' create index and add mapping '''
@@ -253,6 +260,7 @@ class Criteria():
             score = cls.calculate_score(disease_tags)
             row['score'] = score
             row['disease_tags'] = disease_tags
+            row['qid'] = feature_id
 
             json_data += json.dumps(row_obj) + '\n'
             json_data += json.dumps(row) + '\n'
@@ -266,3 +274,35 @@ class Criteria():
                 json_data = ''
         if line_num > 0:
             Loader().bulk_load(idx, idx_type, json_data)
+
+    @classmethod
+    def populate_container(cls, fid, fname, fnotes=None, features=None, diseases=None, result_container={}):
+
+        result_container_ = result_container
+
+        criteria_dict = cls.get_criteria_dict(fid, fname, fnotes)
+
+        dis_dict = dict()
+        criteria_disease_dict = {}
+        for feature in features:
+
+            if feature is None:
+                continue
+
+            for disease in diseases:
+
+                dis_dict[disease] = []
+                if len(result_container_.get(feature, {})) > 0:
+
+                    criteria_disease_dict = result_container_[feature]
+                    criteria_disease_dict = cls.get_criteria_disease_dict(diseases, criteria_dict,
+                                                                          criteria_disease_dict)
+
+                    result_container_[feature] = criteria_disease_dict
+                else:
+                    criteria_disease_dict = {}
+                    criteria_disease_dict = cls.get_criteria_disease_dict(diseases, criteria_dict,
+                                                                          criteria_disease_dict)
+                    result_container_[feature] = criteria_disease_dict
+
+        return result_container_

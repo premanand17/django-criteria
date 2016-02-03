@@ -4,6 +4,7 @@ import os
 import criteria
 from data_pipeline.utils import IniParser
 from criteria.helper.criteria import Criteria
+from criteria.helper.criteria_manager import CriteriaManager
 
 IDX_SUFFIX = ElasticSettings.getattr('TEST')
 MY_INI_FILE = os.path.join(os.path.dirname(__file__), IDX_SUFFIX + '_test_criteria.ini')
@@ -101,4 +102,15 @@ class CriteriaTest(TestCase):
         section = "is_gene_in_mhc"
         feature_id = 'ENSG00000229281'
         result = Criteria.tag_feature_to_all_diseases(feature_id, section, config, {})
-        print(result)
+        result_diseases = sorted(list(result['ENSG00000229281'].keys()))
+        (core_disease, other_disease) = CriteriaManager.get_available_diseases()
+        available_diseases = sorted(core_disease + other_disease)
+        self.assertEqual(result_diseases, available_diseases)
+
+        section = "is_marker_in_mhc"
+        feature_id = 'rs6679677'
+        result = Criteria.tag_feature_to_all_diseases(feature_id, section, config, {})
+        result_diseases = sorted(list(result['rs6679677'].keys()))
+        (core_disease, other_disease) = CriteriaManager.get_available_diseases()
+        available_diseases = sorted(core_disease + other_disease)
+        self.assertEqual(result_diseases, available_diseases)
