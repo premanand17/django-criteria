@@ -1,15 +1,17 @@
-from elastic.search import Search, ElasticQuery, ScanAndScroll
-from elastic.query import BoolQuery, RangeQuery, OrFilter, Query
-from data_pipeline.utils import IniParser
-from elastic.management.loaders.mapping import MappingProperties
-from elastic.management.loaders.loader import Loader
-from elastic.utils import ElasticUtils
-from criteria.helper.criteria_manager import CriteriaManager
 import json
-
 import logging
 
+from criteria.helper.criteria_manager import CriteriaManager
+from data_pipeline.utils import IniParser
+from elastic.aggs import Agg, Aggs
 from elastic.elastic_settings import ElasticSettings
+from elastic.management.loaders.loader import Loader
+from elastic.management.loaders.mapping import MappingProperties
+from elastic.query import BoolQuery, RangeQuery, OrFilter, Query
+from elastic.search import Search, ElasticQuery, ScanAndScroll
+from elastic.utils import ElasticUtils
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -44,7 +46,7 @@ class Criteria():
                 gl_result_container = result_container
 
         query = cls.get_elastic_query(section, config)
-
+        print(query.__dict__)
         ScanAndScroll.scan_and_scroll(source_idx, call_fun=process_hits, query=query)
         cls.map_and_load(feature, section, config, gl_result_container)
 
@@ -58,6 +60,7 @@ class Criteria():
             source_fields = source_fields_str.split(',')
 
         if section == 'is_gene_in_mhc' or section == 'is_marker_in_mhc':
+            # for region you should make a different query
             # Defined MHC region as chr6:25,000,000..35,000,000
             seqid = '6'
             start_range = 25000000
@@ -72,6 +75,8 @@ class Criteria():
                                                      seqid_param,
                                                      start_param,
                                                      end_param)
+        elif section == 'is_region_in_mhc':
+            query = ElasticQuery(Query.term("region_name", "MHC"))
         else:
             query = ElasticQuery(Query.match_all(), sources=source_fields)
 
@@ -306,3 +311,21 @@ class Criteria():
                     result_container_[feature] = criteria_disease_dict
 
         return result_container_
+
+    @classmethod
+    def get_disease_tags(cls, feature_id, idx=None, idx_type=None):
+
+        query = ElasticQuery(Query.term("qid", feature_id))
+        agg = Agg("criteria_disease_tags", "terms", {"field": "disease_tags", "size": 0})
+        aggs = Aggs(agg)
+        search = Search(query, aggs=aggs, idx=idx)
+        r_aggs = search.search().aggs
+        print(r_aggs['criteria_disease_tags'].get_buckets())
+        buckets = r_aggs['criteria_disease_tags'].get_buckets()
+
+        disease_tags = [dis_dict['key'].lower() for dis_dict in buckets]
+
+        # get disease docs
+        query = ElasticQuery(Query.ids(disease_tags))
+        elastic = Search(query, idx=ElasticSettings.idx('DISEASE'), size=len(disease_tags))
+        return elastic.search().docs

@@ -231,3 +231,12 @@ class GeneCriteriaTest(TestCase):
                                                'T1D': [{'fname': 'Clatfield XY', 'fid': 'GDXHsS00005'}]}}
 
         self.assertEqual(result2, expected_result, 'Got back expected result')
+
+    def test_get_disease_tags(self):
+        disease_docs = GeneCriteria.get_disease_tags('ENSG00000163599')
+
+        disease_tags = [getattr(disease_doc, 'code') for disease_doc in disease_docs]
+
+        self.assertIn('atd', disease_tags, 'atd in disease_tags')
+        self.assertIn('aa', disease_tags, 'aa in disease_tags')
+        self.assertIn('cel', disease_tags, 'cel in disease_tags')
