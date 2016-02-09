@@ -248,3 +248,10 @@ class MarkerCriteria(Criteria):
             return result_container_populated
         else:
             return result_container
+
+    @classmethod
+    def get_disease_tags(cls, feature_id):
+
+        idx = ElasticSettings.idx('MARKER_CRITERIA')
+        docs = Criteria.get_disease_tags(feature_id, idx)
+        return docs

@@ -6,6 +6,8 @@ from elastic.elastic_settings import ElasticSettings
 from criteria.helper.criteria import Criteria
 from region import utils
 from elastic.result import Document
+from elastic.aggs import Agg, Aggs
+from criteria.helper.criteria_manager import CriteriaManager
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +49,25 @@ class GeneCriteria(Criteria):
         if 'genes' in feature_doc:
             genes = feature_doc['genes']
 
+        disease = None
+        if 'disease' in feature_doc:
+            disease = feature_doc['disease']
+
+        status = None
+        if 'status' in feature_doc:
+            status = feature_doc['status']
+
+        if genes is None or disease is None or status is None:
+            return result_container
+
+        if status != 'N':
+            return result_container
+
+        disease_loci = feature_doc["disease_locus"].lower()
+
+        if disease_loci == 'tbc':
+            return result_container
+
         region_index = ElasticSettings.idx('REGION', idx_type='STUDY_HITS')
         (region_idx, region_idx_type) = region_index.split('/')
 
@@ -75,12 +96,11 @@ class GeneCriteria(Criteria):
                 print(region_doc.__dict__)
                 region_id = getattr(region_doc, "region_id")
                 region_name = getattr(region_doc, "region_name")
-                diseases = getattr(region_doc, "tags")['disease']
 
                 result_container_populated = cls.populate_container(region_id,
                                                                     region_name,
                                                                     fnotes=None, features=[gene],
-                                                                    diseases=diseases,
+                                                                    diseases=[disease],
                                                                     result_container=result_container)
                 result_container = result_container_populated
 
@@ -167,3 +187,34 @@ class GeneCriteria(Criteria):
         query = ElasticQuery(Query.ids(ens_ids), sources=sources)
         elastic = Search(query, idx=ElasticSettings.idx('GENE', idx_type='GENE'), size=len(ens_ids))
         return {doc.doc_id(): doc for doc in elastic.search().docs}
+
+    @classmethod
+    def get_disease_tags(cls, feature_id):
+        'Function to get disease tags for a given feature_id...delegated to parent class Criteria'
+        idx = ElasticSettings.idx('GENE_CRITERIA')
+        docs = Criteria.get_disease_tags(feature_id, idx)
+        return docs
+
+    @classmethod
+    def get_available_criterias(cls, config=None):
+        'Function to get available criterias'
+        if config is None:
+            config = CriteriaManager.get_criteria_config()
+
+        available_criterias = Criteria.get_available_criterias('gene', config)
+        return available_criterias
+
+    @classmethod
+    def get_criteria_details(cls, feature_id, idx=None, idx_type=None, criteria_id=None):
+
+        # get all the criterias from ini
+        available_criterias = cls.get_available_criterias()
+        idx_type = None
+        for feature, criteria_list in available_criterias.items():  # @UnusedVariable
+            idx_type = ','.join(criteria_list)
+
+        if idx is None:
+            idx = ElasticSettings.idx('GENE_CRITERIA')
+        result_dict = Criteria.get_criteria_details(feature_id, idx, idx_type, criteria_id)
+
+        return result_dict

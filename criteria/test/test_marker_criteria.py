@@ -144,3 +144,12 @@ class MarkerCriteriaTest(TestCase):
                                                                      config=config, result_container={})
         expected_results = {}
         self.assertEqual(criteria_results, expected_results, "got expected results")
+
+    def test_get_disease_tags(self):
+        disease_docs = MarkerCriteria.get_disease_tags('rs2476601')
+
+        disease_tags = [getattr(disease_doc, 'code') for disease_doc in disease_docs]
+
+        self.assertIn('atd', disease_tags, 'atd in disease_tags')
+        self.assertIn('cro', disease_tags, 'cro in disease_tags')
+        self.assertIn('sle', disease_tags, 'sle in disease_tags')
