@@ -9,6 +9,7 @@ from elastic.query import BoolQuery, Query
 from elastic.search import ElasticQuery, Search
 from elastic.elastic_settings import ElasticSettings
 import json
+from criteria.helper.criteria_manager import CriteriaManager
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +113,6 @@ class MarkerCriteria(Criteria):
         dil_study_id = feature_doc["dil_study_id"]
 
         global counter
-        print('=========================' + str(counter))
         counter = counter + 1
 
         # get the markers that is in ld with the above marker and add it as fid, fname
@@ -228,7 +228,6 @@ class MarkerCriteria(Criteria):
             return result_container
 
         global counter
-        print('=========================' + str(counter))
         counter = counter + 1
 
         p_val_to_compare = float(p_val_to_compare)
@@ -255,3 +254,33 @@ class MarkerCriteria(Criteria):
         idx = ElasticSettings.idx('MARKER_CRITERIA')
         docs = Criteria.get_disease_tags(feature_id, idx)
         return docs
+
+    @classmethod
+    def get_available_criterias(cls, config=None):
+        'Function to get available criterias'
+        if config is None:
+            config = CriteriaManager.get_criteria_config()
+
+        available_criterias = Criteria.get_available_criterias('marker', config)
+        return available_criterias
+
+    @classmethod
+    def get_criteria_details(cls, feature_id, idx=None, idx_type=None, criteria_id=None):
+
+        # get all the criterias from ini
+        available_criterias = cls.get_available_criterias()
+        idx_type = None
+        for feature, criteria_list in available_criterias.items():  # @UnusedVariable
+            idx_type = ','.join(criteria_list)
+
+        if idx is None:
+            idx = ElasticSettings.idx('MARKER_CRITERIA')
+        result_dict = Criteria.get_criteria_details(feature_id, idx, idx_type, criteria_id)
+
+        return result_dict
+
+    
+    
+    
+    
+    
