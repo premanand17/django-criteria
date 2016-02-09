@@ -58,18 +58,6 @@ class CriteriaManagerTest(TestCase):
         self.assertIn('T1D', main_dis_code)
         self.assertIn('AA', other_dis_code)
 
-    def test_available_criterias(self):
-        feature = 'gene'
-        available_criterias = CriteriaManager.get_available_criterias(feature, INI_CONFIG)
-        expected_dict = {'gene': ['cand_gene_in_study', 'gene_in_region', 'is_gene_in_mhc', 'cand_gene_in_region']}
-        self.assertIsNotNone(available_criterias, 'Criterias as not none')
-        self.assertIn('cand_gene_in_study', available_criterias['gene'])
-        self.assertEqual(available_criterias.keys(), expected_dict.keys(), 'Dic keys equal')
-
-        available_criterias = CriteriaManager.get_available_criterias(feature=None, config=INI_CONFIG)
-        self.assertIn('gene', available_criterias)
-        self.assertIn('marker', available_criterias)
-
     def test_process_criterias(self):
         feature = 'gene'
         criteria = 'cand_gene_in_study,gene_in_region'

@@ -16,9 +16,23 @@ logger = logging.getLogger(__name__)
 
 
 class Criteria():
+    ''' Criteria class implementing common functions for all criteria types  '''
 
     @classmethod
     def process_criteria(cls, feature, section, config, sub_class):
+        ''' Top level function that calls the right criteria implementation based on the subclass passed. Iterates over all the
+            documents using the ScanAndScroll and the hits are processed by the inner function process_hits.
+            The entire result is stored in result_container (a dict), and at the end of the processing, the result is
+            loaded in to the elastic index after creating the mapping
+        @type  feature: string
+        @param feature: feature type, could be 'gene','region', 'marker' etc.,
+        @type  section: string
+        @keyword section: The section in the criteria.ini file
+        @type  config:  string
+        @keyword config: The config object initialized from criteria.ini.
+        @type  sub_class: string
+        @param sub_class: The name of the inherited sub_class where the actual implementation is
+        '''
 
         if config is None:
             config = CriteriaManager().get_criteria_config()
@@ -52,6 +66,13 @@ class Criteria():
 
     @classmethod
     def get_elastic_query(cls, section=None, config=None):
+        ''' function to build the elastic query object
+        @type  section: string
+        @keyword section: The section in the criteria.ini file
+        @type  config:  string
+        @keyword config: The config object initialized from criteria.ini.
+        @return: L{Query}
+        '''
         section_config = config[section]
         source_fields = []
 
@@ -84,7 +105,16 @@ class Criteria():
 
     @classmethod
     def tag_feature_to_all_diseases(cls, feature_id, section, config, result_container={}):
-
+        ''' function to tag the feature to all the diseases, used to tag features in the MHC region
+        @type  feature_id: string
+        @keyword feature_id: Id of the feature (gene => gene_id, region=>region_id)
+        @type  section: string
+        @keyword section: The section in the criteria.ini file
+        @type  config:  string
+        @keyword config: The config object initialized from criteria.ini.
+        @type result_container : string
+        @keyword result_container: Container object for storing the result with keys as the feature_id
+        '''
         (main_codes, other_codes) = CriteriaManager.get_available_diseases()
         all_diseases = main_codes + other_codes
 
@@ -116,7 +146,16 @@ class Criteria():
 
     @classmethod
     def map_and_load(cls, feature, section, config, result_container={}):
-
+        ''' function to map and load the results in to elastic index
+        @type  feature: string
+        @param feature: feature type, could be 'gene','region', 'marker' etc.,
+        @type  section: string
+        @keyword section: The section in the criteria.ini file
+        @type  config:  string
+        @keyword config: The config object initialized from criteria.ini.
+        @type result_container : string
+        @keyword result_container: Container object for storing the result with keys as the feature_id
+        '''
         feature_upper = feature.upper()
         criteria_type = 'CRITERIA_IDX_' + feature_upper
 
@@ -130,7 +169,15 @@ class Criteria():
 
     @classmethod
     def get_criteria_dict(cls, fid, fname, fnotes={}):
-
+        ''' function to create a criteria_dict initialized with fid, fname, and fnotes
+        @type  fid: string
+        @param fid: feature id
+        @type  fname: string
+        @param fname: feature name
+        @type  fnotes:  string
+        @keyword fnotes: fnotes eg: {'linkdata': 'rsq', 'linkvalue': rsquared,
+                                     'linkid': dil_study_id, 'linkname': first_author}
+        '''
         if(fnotes is not None and len(fnotes) > 0):
             criteria_dict = {'fid': fid, 'fname': fname, 'fnotes': fnotes}
         else:
@@ -140,7 +187,16 @@ class Criteria():
 
     @classmethod
     def get_criteria_disease_dict(cls, diseases, criteria_dict, criteria_disease_dict):
-
+        ''' function to create a dict object with key as diseases and values as a dict with fid, fname, and fnotes
+        @type  diseases: string
+        @param diseases: list of diseases to tag with
+        @type  criteria_dict: string
+        @keyword criteria_dict: dict with keys as disease code and values as fname, fid, fnotes
+                                eg: {'T1D': [{'fname': 'Barrett', 'fid': 'GDXHsS00004'}]}
+        @type  criteria_disease_dict:  string
+        @keyword criteria_disease_dict: fnotes eg: {'linkdata': 'rsq', 'linkvalue': rsquared,
+                                     'linkid': dil_study_id, 'linkname': first_author}
+        '''
         for disease in diseases:
             if disease in criteria_disease_dict:
                 existing_dict = criteria_disease_dict[disease]
@@ -154,7 +210,14 @@ class Criteria():
 
     @classmethod
     def create_criteria_mapping(cls, idx, idx_type, test_mode=False):
-
+        ''' function to create mapping for criteria indexes
+        @type  idx: string
+        @param idx: name of the index
+        @type  idx_type: string
+        @param idx_type: name of the idx type, each criteria is an index type
+        @type  test_mode:  string
+        @param test_mode: flag to create or not create the mapping
+        '''
         print('Idx ' + idx)
         print('Idx_type ' + idx_type)
         ''' Create the mapping for alias indexing '''
@@ -187,6 +250,23 @@ class Criteria():
 
     @classmethod
     def fetch_overlapping_features(cls, build, seqid, start, end, idx=None, idx_type=None, disease_id=None):
+        ''' function to create fetch overlapping features for a given stretch of region
+            the build info is stored as nested document..so nested query is build
+        @type  build: string
+        @param build: build info eg: 'GRCh38'
+        @type  seqid: string
+        @param seqid: chromosome number
+        @type  start:  string
+        @param start: region start
+        @type  end:  string
+        @param end: region end
+        @type  idx: string
+        @param idx: name of the index
+        @type  idx_type: string
+        @param idx_type: name of the idx type, each criteria is an index type
+        @type  disease_id:  string
+        @param disease_id: disease code
+        '''
         nbuild = build
         start_range = start
         end_range = end
@@ -229,7 +309,10 @@ class Criteria():
 
     @classmethod
     def calculate_score(cls, disease_list):
-
+        ''' function to calculate score based on the disease tiers...core diseases gets 10 and non-score gets 5
+        @type  disease_list: string
+        @param disease_list: list of disease codes eg: ['T1D', 'MS', 'AA']
+        '''
         (core_diseases, other_diseases) = CriteriaManager.get_available_diseases()
 
         score = 0
@@ -245,7 +328,14 @@ class Criteria():
 
     @classmethod
     def load_result_container(cls, result_container, idx, idx_type):
-
+        ''' function to load the results in to index using the bulk loader
+        @type result_container : string
+        @keyword result_container: Container object for storing the result with keys as the feature_id
+        @type  idx: string
+        @param idx: name of the index
+        @type  idx_type: string
+        @param idx_type: name of the idx type, each criteria is an index type
+        '''
         json_data = ''
         line_num = 0
         for feature_id in result_container:
@@ -282,6 +372,22 @@ class Criteria():
 
     @classmethod
     def populate_container(cls, fid, fname, fnotes=None, features=None, diseases=None, result_container={}):
+        ''' function to populate the result container with the results
+        @type  fid: string
+        @param fid: feature id
+        @type  fname: string
+        @param fname: feature name
+        @type  fnotes:  string
+        @keyword fnotes: fnotes eg: {'linkdata': 'rsq', 'linkvalue': rsquared,
+                                     'linkid': dil_study_id, 'linkname': first_author}
+                                            @type  fid: string
+        @type  features: string
+        @param features: list of feature_ids
+        @type  diseases: string
+        @param diseases: list of diseases
+        @type result_container : string
+        @keyword result_container: Container object for storing the result with keys as the feature_id
+        '''
 
         result_container_ = result_container
 
@@ -313,8 +419,46 @@ class Criteria():
         return result_container_
 
     @classmethod
-    def get_disease_tags(cls, feature_id, idx=None, idx_type=None):
+    def get_available_criterias(cls, feature=None, config=None):
+        ''' function to get avalable criterias for a given feature
+        @type  feature: string
+        @param feature: feature type, could be 'gene','region', 'marker' etc.,
+        @type  config:  string
+        @keyword config: The config object initialized from criteria.ini.
+        '''
+        if config is None:
+            config = CriteriaManager.get_criteria_config()
 
+        criteria_dict = dict()
+        criteria_list = []
+        for section_name in config.sections():
+            if config[section_name] is not None:
+                section_config = config[section_name]
+                if 'feature' in section_config:
+                    if feature is not None and feature != section_config['feature']:
+                        continue
+
+                    if section_config['feature'] in criteria_dict:
+                        criteria_list = criteria_dict[section_config['feature']]
+                        criteria_list.append(section_name)
+                    else:
+                        criteria_list = []
+                        criteria_list.append(section_name)
+                        criteria_dict[section_config['feature']] = criteria_list
+
+        return criteria_dict
+
+    @classmethod
+    def get_disease_tags(cls, feature_id, idx=None, idx_type=None):
+        ''' function to get the aggregated list of disease_tags for a given feature id, aggregated
+            from all criteria_types for a feature type
+        @type  feature_id: string
+        @keyword feature_id: Id of the feature (gene => gene_id, region=>region_id)
+              @type  idx: string
+        @param idx: name of the index
+        @type  idx_type: string
+        @param idx_type: name of the idx type, each criteria is an index type
+        '''
         query = ElasticQuery(Query.term("qid", feature_id))
         agg = Agg("criteria_disease_tags", "terms", {"field": "disease_tags", "size": 0})
         aggs = Aggs(agg)
@@ -329,3 +473,38 @@ class Criteria():
         query = ElasticQuery(Query.ids(disease_tags))
         elastic = Search(query, idx=ElasticSettings.idx('DISEASE'), size=len(disease_tags))
         return elastic.search().docs
+
+    @classmethod
+    def get_criteria_details(cls, feature_id, idx, idx_type, criteria_id=None):
+        '''Function to get criteria details for a given feature_id. If criteria_id is given,
+        the result is restricted to that criteria
+        @type  feature_id: string
+        @keyword feature_id: Id of the feature (gene => gene_id, region=>region_id)
+        @type  criteria_id: string
+        @keyword criteria_id: criteria_id eg: cand_gene_in_study, gene_in_region
+        @type  idx: string
+        @param idx: name of the index
+        @type  idx_type: string
+        @param idx_type: name of the idx type, each criteria is an index type
+        '''
+        query = ElasticQuery(Query.term("qid", feature_id))
+        search = Search(query, idx=idx, idx_type=idx_type)
+        elastic_docs = search.search().docs
+        result_dict = dict()
+        for doc in elastic_docs:
+
+            meta = getattr(doc, '_meta')
+            criteria_type = meta['_type']
+
+            if criteria_id is not None and criteria_type != criteria_id:
+                continue
+
+            if feature_id not in result_dict:
+                result_dict[feature_id] = {}
+
+            if criteria_type not in result_dict[feature_id]:
+                result_dict[feature_id][criteria_type] = {}
+
+            result_dict[feature_id][criteria_type] = doc
+
+        return(result_dict)

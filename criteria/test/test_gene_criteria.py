@@ -240,3 +240,21 @@ class GeneCriteriaTest(TestCase):
         self.assertIn('atd', disease_tags, 'atd in disease_tags')
         self.assertIn('aa', disease_tags, 'aa in disease_tags')
         self.assertIn('cel', disease_tags, 'cel in disease_tags')
+
+    def test_available_criterias(self):
+        config = IniParser().read_ini(MY_INI_FILE)
+        available_criterias = GeneCriteria.get_available_criterias(config=config)
+        expected_dict = {'gene': ['cand_gene_in_study', 'gene_in_region', 'is_gene_in_mhc', 'cand_gene_in_region']}
+        self.assertIsNotNone(available_criterias, 'Criterias as not none')
+        self.assertIn('cand_gene_in_study', available_criterias['gene'])
+        self.assertEqual(available_criterias.keys(), expected_dict.keys(), 'Dic keys equal')
+
+    def test_get_criteria_details(self):
+
+        feature_id = 'ENSG00000134242'
+        criteria_details = GeneCriteria.get_criteria_details(feature_id)
+
+        criterias = criteria_details[feature_id].keys()
+        self.assertIn('cand_gene_in_study', criterias)
+        self.assertIn('gene_in_region', criterias)
+        self.assertIn('cand_gene_in_region', criterias)

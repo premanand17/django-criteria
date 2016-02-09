@@ -190,7 +190,31 @@ class GeneCriteria(Criteria):
 
     @classmethod
     def get_disease_tags(cls, feature_id):
-
+        'Function to get disease tags for a given feature_id...delegated to parent class Criteria'
         idx = ElasticSettings.idx('GENE_CRITERIA')
         docs = Criteria.get_disease_tags(feature_id, idx)
         return docs
+
+    @classmethod
+    def get_available_criterias(cls, config=None):
+        'Function to get available criterias'
+        if config is None:
+            config = CriteriaManager.get_criteria_config()
+
+        available_criterias = Criteria.get_available_criterias('gene', config)
+        return available_criterias
+
+    @classmethod
+    def get_criteria_details(cls, feature_id, idx=None, idx_type=None, criteria_id=None):
+
+        # get all the criterias from ini
+        available_criterias = cls.get_available_criterias()
+        idx_type = None
+        for feature, criteria_list in available_criterias.items():  # @UnusedVariable
+            idx_type = ','.join(criteria_list)
+
+        if idx is None:
+            idx = ElasticSettings.idx('GENE_CRITERIA')
+        result_dict = Criteria.get_criteria_details(feature_id, idx, idx_type, criteria_id)
+
+        return result_dict

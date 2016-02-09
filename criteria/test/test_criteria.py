@@ -114,3 +114,26 @@ class CriteriaTest(TestCase):
         (core_disease, other_disease) = CriteriaManager.get_available_diseases()
         available_diseases = sorted(core_disease + other_disease)
         self.assertEqual(result_diseases, available_diseases)
+
+    def test_available_criterias(self):
+        feature = 'gene'
+        available_criterias = Criteria.get_available_criterias(feature, INI_CONFIG)
+        expected_dict = {'gene': ['cand_gene_in_study', 'gene_in_region', 'is_gene_in_mhc', 'cand_gene_in_region']}
+        self.assertIsNotNone(available_criterias, 'Criterias as not none')
+        self.assertIn('cand_gene_in_study', available_criterias['gene'])
+        self.assertEqual(available_criterias.keys(), expected_dict.keys(), 'Dic keys equal')
+
+        available_criterias = Criteria.get_available_criterias(feature=None, config=INI_CONFIG)
+        self.assertIn('gene', available_criterias)
+        self.assertIn('marker', available_criterias)
+
+    def test_get_criteria_details(self):
+        feature_id = 'ENSG00000134242'
+        idx = ElasticSettings.idx('GENE_CRITERIA')
+        idx_type = 'cand_gene_in_study,gene_in_region'
+        criteria_details = Criteria.get_criteria_details(feature_id, idx, idx_type)
+
+        criterias = criteria_details[feature_id].keys()
+        self.assertIn('cand_gene_in_study', criterias)
+        self.assertIn('gene_in_region', criterias)
+        self.assertNotIn('cand_gene_in_region', criterias)
