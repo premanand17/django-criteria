@@ -3,6 +3,7 @@ from data_pipeline.utils import IniParser
 import os
 from builtins import classmethod
 from disease import utils
+import datetime
 
 # Get an instance of a logger
 logger = logging.getLogger(__name__)
@@ -57,6 +58,7 @@ class CriteriaManager():
             print(criterias_to_process)
             return criterias_to_process
 
+        logger.debug(datetime.datetime.strftime(datetime.datetime.now(), '%Y-%m-%d %H:%M:%S'))
         for section in criterias_to_process:
             if feature == 'gene':
                 print('Call to build criteria gene index')
@@ -71,3 +73,6 @@ class CriteriaManager():
                 print('Call to build criteria study index')
             else:
                 logger.critical('Unsupported feature ... please check the inputs')
+
+        logger.debug(datetime.datetime.strftime(datetime.datetime.now(), '%Y-%m-%d %H:%M:%S'))
+        logger.debug('========DONE==========')

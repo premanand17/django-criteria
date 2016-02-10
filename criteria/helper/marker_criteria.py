@@ -278,9 +278,3 @@ class MarkerCriteria(Criteria):
         result_dict = Criteria.get_criteria_details(feature_id, idx, idx_type, criteria_id)
 
         return result_dict
-
-    
-    
-    
-    
-    

@@ -104,12 +104,7 @@ class RegionCriteria(Criteria):
             idx_type = ','.join(criteria_list)
 
         if idx is None:
-            idx = ElasticSettings.idx('REGION_CRITERIA')
+            idx = ElasticSettings.idx('REGION    _CRITERIA')
         result_dict = Criteria.get_criteria_details(feature_id, idx, idx_type, criteria_id)
 
         return result_dict
-
-    
-    
-    
-    

@@ -6,7 +6,6 @@ from elastic.elastic_settings import ElasticSettings
 from criteria.helper.criteria import Criteria
 from region import utils
 from elastic.result import Document
-from elastic.aggs import Agg, Aggs
 from criteria.helper.criteria_manager import CriteriaManager
 
 logger = logging.getLogger(__name__)
@@ -145,7 +144,7 @@ class GeneCriteria(Criteria):
         elastic = Search.range_overlap_query(seqid=seqid, start_range=start, end_range=end,
                                              idx=gene_index, field_list=['start', 'stop', '_id'],
                                              seqid_param="chromosome",
-                                             end_param="stop")
+                                             end_param="stop", size=10000)
         result_docs = elastic.search().docs
 
         genes = set()
