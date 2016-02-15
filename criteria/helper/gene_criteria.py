@@ -6,7 +6,6 @@ from elastic.elastic_settings import ElasticSettings
 from criteria.helper.criteria import Criteria
 from region import utils
 from elastic.result import Document
-from elastic.aggs import Agg, Aggs
 from criteria.helper.criteria_manager import CriteriaManager
 
 logger = logging.getLogger(__name__)
@@ -14,12 +13,14 @@ logger = logging.getLogger(__name__)
 
 class GeneCriteria(Criteria):
 
-    ''' GeneCriteria class define functions for building gene index type within criteria index
+    ''' GeneCriteria class define functions for building gene criterias, each as separate index types
 
     '''
 
     @classmethod
     def cand_gene_in_study(cls, hit, section=None, config=None, result_container={}):
+        '''function that implements the cand_gene_in_study criteria
+        '''
 
         result_container_ = result_container
         feature_doc = hit['_source']
@@ -41,7 +42,8 @@ class GeneCriteria(Criteria):
 
     @classmethod
     def cand_gene_in_region(cls, hit, section=None, config=None, result_container={}):
-
+        '''function that implements the cand_gene_in_region criteria
+        '''
         feature_doc = hit['_source']
         feature_doc['_id'] = hit['_id']
 
@@ -108,6 +110,7 @@ class GeneCriteria(Criteria):
 
     @classmethod
     def tag_feature_to_disease(cls, feature_doc, section, config, result_container={}):
+
         feature_class = cls.__name__
         # Get class from globals and create an instance
         m = globals()[feature_class]()
@@ -145,7 +148,7 @@ class GeneCriteria(Criteria):
         elastic = Search.range_overlap_query(seqid=seqid, start_range=start, end_range=end,
                                              idx=gene_index, field_list=['start', 'stop', '_id'],
                                              seqid_param="chromosome",
-                                             end_param="stop")
+                                             end_param="stop", size=10000)
         result_docs = elastic.search().docs
 
         genes = set()
