@@ -14,7 +14,7 @@ class RegionCriteria(Criteria):
     global counter
     counter = 1
 
-    ''' RegionCriteria class define functions for building marker index type within criteria index
+    ''' RegionCriteria class define functions for building region criterias, each as separate index types
 
     '''
     @classmethod

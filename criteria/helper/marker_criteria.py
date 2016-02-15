@@ -18,8 +18,7 @@ class MarkerCriteria(Criteria):
     global counter
     counter = 1
 
-    ''' MarkerCriteria class define functions for building marker index type within criteria index
-
+    ''' MarkerCriteria class define functions for building marker criterias, each as separate index types
     '''
     @classmethod
     def is_an_index_snp(cls, hit, section=None, config=None, result_container={}):
