@@ -29,7 +29,6 @@ class RegionCriteria(Criteria):
 
     @classmethod
     def is_region_in_mhc(cls, hit, section=None, config=None, result_container={}):
-
         feature_id = hit['_id']
         result_container_ = cls.tag_feature_to_all_diseases(feature_id, section, config, result_container)
         return result_container_
