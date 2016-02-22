@@ -35,7 +35,37 @@ def tearDownModule():
 
 
 class CriteriaTest(TestCase):
-    '''Test interaction staging'''
+    '''Test Criteria functions'''
+
+    def test_populate_container(self):
+            features = ['ENSG00000110800']
+            diseases = ['T1D']
+            fid = 'GDXHsS00004'
+            fname = 'Barrett'
+            fnotes = {'linkdata': 'somedata', 'linkvalue': 'somevalue'}
+            result_container = Criteria.populate_container(fid, fname, fnotes, features, diseases, result_container={})
+            expected_result = {'ENSG00000110800': {'T1D': [{'fid': 'GDXHsS00004', 'fname': 'Barrett',
+                                                            'fnotes': {'linkvalue': 'somevalue',
+                                                                       'linkdata': 'somedata'}}]}}
+            self.assertEqual(expected_result, result_container, 'Expected result from populate container')
+
+            features = ['ENSG00000110800']
+            diseases = ['RA']
+            fid = 'GDXHsS00003'
+            fname = 'Barrett'
+            fnotes = {'linkdata': 'somedata2', 'linkvalue': 'somevalue2'}
+            result_container_populated_again = Criteria.populate_container(fid, fname, fnotes, features, diseases,
+                                                                           result_container=result_container)
+
+            expected_result_populated_again = {'ENSG00000110800': {'RA': [{'fname': 'Barrett', 'fid': 'GDXHsS00003',
+                                                                           'fnotes': {'linkvalue': 'somevalue2',
+                                                                                      'linkdata': 'somedata2'}}],
+                                                                   'T1D': [{'fname': 'Barrett', 'fid': 'GDXHsS00004',
+                                                                            'fnotes': {'linkvalue': 'somevalue',
+                                                                                       'linkdata': 'somedata'}}]}}
+
+            self.assertEqual(result_container_populated_again, expected_result_populated_again,
+                             'Expected result after populating')
 
     def test_get_elastic_query(self):
         config = IniParser().read_ini(MY_INI_FILE)

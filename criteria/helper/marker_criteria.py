@@ -9,6 +9,7 @@ from elastic.query import BoolQuery, Query
 from elastic.search import ElasticQuery, Search
 from elastic.elastic_settings import ElasticSettings
 import json
+from criteria.helper.criteria_manager import CriteriaManager
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +18,7 @@ class MarkerCriteria(Criteria):
     global counter
     counter = 1
 
-    ''' MarkerCriteria class define functions for building marker index type within criteria index
-
+    ''' MarkerCriteria class define functions for building marker criterias, each as separate index types
     '''
     @classmethod
     def is_an_index_snp(cls, hit, section=None, config=None, result_container={}):
@@ -76,9 +76,12 @@ class MarkerCriteria(Criteria):
 
     @classmethod
     def is_marker_in_mhc(cls, hit, section=None, config=None, result_container={}):
-
-        feature_id = hit['_id']
+        global counter
+        feature_id = hit['_source']['id']
+        print(hit)
         result_container_ = cls.tag_feature_to_all_diseases(feature_id, section, config, result_container)
+        print(str(counter) + ' Feature id ' + feature_id)
+        counter = counter + 1
         return result_container_
 
     @classmethod
@@ -112,7 +115,6 @@ class MarkerCriteria(Criteria):
         dil_study_id = feature_doc["dil_study_id"]
 
         global counter
-        print('=========================' + str(counter))
         counter = counter + 1
 
         # get the markers that is in ld with the above marker and add it as fid, fname
@@ -154,6 +156,12 @@ class MarkerCriteria(Criteria):
         if marker_list is None or len(marker_list) == 0:
             return result_container
 
+        query = ElasticQuery(Query.ids([dil_study_id]))
+        elastic = Search(search_query=query, idx=ElasticSettings.idx('STUDY', 'STUDY'), size=1)
+        study_doc = elastic.search().docs[0]
+        author = getattr(study_doc, 'authors')[0]
+        first_author = author['name'] + ' ' + author['initials']
+
         for marker_dict in marker_list:
 
             marker2 = marker_dict['marker2']
@@ -162,11 +170,6 @@ class MarkerCriteria(Criteria):
             marker_id = marker1
             marker_name = marker1
 
-            query = ElasticQuery(Query.ids([dil_study_id]))
-            elastic = Search(search_query=query, idx=ElasticSettings.idx('STUDY', 'STUDY'), size=1)
-            study_doc = elastic.search().docs[0]
-            author = getattr(study_doc, 'authors')[0]
-            first_author = author['name'] + ' ' + author['initials']
             fnotes = {'linkdata': 'rsq', 'linkvalue': rsquared, 'linkid': dil_study_id, 'linkname': first_author}
 
             result_container_populated = cls.populate_container(marker_id,
@@ -174,7 +177,6 @@ class MarkerCriteria(Criteria):
                                                                 fnotes=fnotes, features=[marker2],
                                                                 diseases=[disease],
                                                                 result_container=result_container)
-
             result_container = result_container_populated
 
         return result_container
@@ -228,7 +230,6 @@ class MarkerCriteria(Criteria):
             return result_container
 
         global counter
-        print('=========================' + str(counter))
         counter = counter + 1
 
         p_val_to_compare = float(p_val_to_compare)
@@ -255,3 +256,27 @@ class MarkerCriteria(Criteria):
         idx = ElasticSettings.idx('MARKER_CRITERIA')
         docs = Criteria.get_disease_tags(feature_id, idx)
         return docs
+
+    @classmethod
+    def get_available_criterias(cls, config=None):
+        'Function to get available criterias'
+        if config is None:
+            config = CriteriaManager.get_criteria_config()
+
+        available_criterias = Criteria.get_available_criterias('marker', config)
+        return available_criterias
+
+    @classmethod
+    def get_criteria_details(cls, feature_id, idx=None, idx_type=None, criteria_id=None):
+
+        # get all the criterias from ini
+        available_criterias = cls.get_available_criterias()
+        idx_type = None
+        for feature, criteria_list in available_criterias.items():  # @UnusedVariable
+            idx_type = ','.join(criteria_list)
+
+        if idx is None:
+            idx = ElasticSettings.idx('MARKER_CRITERIA')
+        result_dict = Criteria.get_criteria_details(feature_id, idx, idx_type, criteria_id)
+
+        return result_dict
