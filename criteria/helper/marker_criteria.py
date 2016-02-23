@@ -76,9 +76,12 @@ class MarkerCriteria(Criteria):
 
     @classmethod
     def is_marker_in_mhc(cls, hit, section=None, config=None, result_container={}):
-
-        feature_id = hit['_id']
+        global counter
+        feature_id = hit['_source']['id']
+        print(hit)
         result_container_ = cls.tag_feature_to_all_diseases(feature_id, section, config, result_container)
+        print(str(counter) + ' Feature id ' + feature_id)
+        counter = counter + 1
         return result_container_
 
     @classmethod
@@ -153,6 +156,12 @@ class MarkerCriteria(Criteria):
         if marker_list is None or len(marker_list) == 0:
             return result_container
 
+        query = ElasticQuery(Query.ids([dil_study_id]))
+        elastic = Search(search_query=query, idx=ElasticSettings.idx('STUDY', 'STUDY'), size=1)
+        study_doc = elastic.search().docs[0]
+        author = getattr(study_doc, 'authors')[0]
+        first_author = author['name'] + ' ' + author['initials']
+
         for marker_dict in marker_list:
 
             marker2 = marker_dict['marker2']
@@ -161,11 +170,6 @@ class MarkerCriteria(Criteria):
             marker_id = marker1
             marker_name = marker1
 
-            query = ElasticQuery(Query.ids([dil_study_id]))
-            elastic = Search(search_query=query, idx=ElasticSettings.idx('STUDY', 'STUDY'), size=1)
-            study_doc = elastic.search().docs[0]
-            author = getattr(study_doc, 'authors')[0]
-            first_author = author['name'] + ' ' + author['initials']
             fnotes = {'linkdata': 'rsq', 'linkvalue': rsquared, 'linkid': dil_study_id, 'linkname': first_author}
 
             result_container_populated = cls.populate_container(marker_id,
@@ -173,7 +177,6 @@ class MarkerCriteria(Criteria):
                                                                 fnotes=fnotes, features=[marker2],
                                                                 diseases=[disease],
                                                                 result_container=result_container)
-
             result_container = result_container_populated
 
         return result_container
