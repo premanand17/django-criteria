@@ -77,6 +77,37 @@ class GeneCriteriaTest(TestCase):
                         'chromosome': '1'}}  # IL10
         self.gene_ensembl1 = {'_id': 'ENSG00000136634'}
 
+        self.region_doc_17q = {
+            '_index': "regions_v0.0.5",
+            '_type': "region",
+            '_id': "17q21.2_007",
+            '_score': 7.7001157,
+            '_source': {
+                'tier': 1,
+                'seqid': "17",
+                'disease_loci': [
+                    "MS_17002",
+                    "CRO_17004",
+                    "IBD_17003",
+                    "UC_17002",
+                    "PSO_17002"
+                    ],
+                'region_name': "17q21.2",
+                'tags': {
+                         'disease': [
+                            "UC",
+                            "PSO",
+                            "IBD",
+                            "MS",
+                            "CRO"
+                                ],
+                         'weight': 231
+                },
+                'species': "Human",
+                'region_id': "17q21.2_007"
+            }
+                               }
+
         self.region_doc_full = {
                 '_index': "regions_v0.0.5",
                 '_type': "region",
@@ -118,7 +149,7 @@ class GeneCriteriaTest(TestCase):
                           '_type': 'studies',
                           '_index': 'studies_latest', '_id': 'GDXHsS00005', '_score': 0.0}
 
-    def test_process_gene_in_region(self):
+    def test_gene_in_region(self):
         ''' Test process_gene_in_region. '''
         config = IniParser().read_ini(MY_INI_FILE)
 
@@ -127,6 +158,10 @@ class GeneCriteriaTest(TestCase):
         expected_dict = {'ENSG00000279625': {'IBD': [{'fid': '1p36.12_008', 'fname': '1p36.12'}],
                                              'UC': [{'fid': '1p36.12_008', 'fname': '1p36.12'}]}}
         self.assertEqual(criteria_results, expected_dict, 'Got regions in gene as expected')
+
+        criteria_results_17q = GeneCriteria.gene_in_region(self.region_doc_17q, config=config,
+                                                           result_container={})
+        self.assertTrue(len(criteria_results_17q) > 20, "Got back results greater than the default size")
 
     def test_cand_gene_in_study(self):
         config = IniParser().read_ini(MY_INI_FILE)

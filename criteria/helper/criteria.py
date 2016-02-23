@@ -18,6 +18,9 @@ logger = logging.getLogger(__name__)
 class Criteria():
     ''' Criteria class implementing common functions for all criteria types  '''
 
+    (main_codes, other_codes) = CriteriaManager.get_available_diseases()
+    site_enabled_diseases = main_codes + other_codes
+
     @classmethod
     def process_criteria(cls, feature, section, config, sub_class):
         ''' Top level function that calls the right criteria implementation based on the subclass passed. Iterates over all the
@@ -60,7 +63,6 @@ class Criteria():
                 gl_result_container = result_container
 
         query = cls.get_elastic_query(section, config)
-        print(query.__dict__)
         ScanAndScroll.scan_and_scroll(source_idx, call_fun=process_hits, query=query)
         cls.map_and_load(feature, section, config, gl_result_container)
 
@@ -76,13 +78,7 @@ class Criteria():
         section_config = config[section]
         source_fields = []
 
-        if 'source_fields' in section_config:
-            source_fields_str = section_config['source_fields']
-            source_fields = source_fields_str.split(',')
-
-        if section == 'is_gene_in_mhc' or section == 'is_marker_in_mhc':
-            # for region you should make a different query
-            # Defined MHC region as chr6:25,000,000..35,000,000
+        if 'mhc' in section:
             seqid = '6'
             start_range = 25000000
             end_range = 35000000
@@ -91,11 +87,25 @@ class Criteria():
             start_param = section_config['start_param']
             end_param = section_config['end_param']
 
+        if 'source_fields' in section_config:
+            source_fields_str = section_config['source_fields']
+            source_fields = source_fields_str.split(',')
+
+        if section == 'is_gene_in_mhc':
+            # for region you should make a different query
+            # Defined MHC region as chr6:25,000,000..35,000,000
+
             query = ElasticUtils.range_overlap_query(seqid, start_range, end_range,
                                                      field_list,
                                                      seqid_param,
                                                      start_param,
                                                      end_param)
+        elif section == 'is_marker_in_mhc':
+            query_bool = BoolQuery()
+            query_bool.must(RangeQuery("start", lte=end_range)) \
+                      .must(RangeQuery("start", gte=start_range)) \
+                      .must(Query.term("seqid", seqid))
+            query = ElasticQuery.filtered_bool(Query.match_all(), query_bool, sources=["id", "seqid", "start"])
         elif section == 'is_region_in_mhc':
             query = ElasticQuery(Query.term("region_name", "MHC"))
         else:
@@ -115,18 +125,17 @@ class Criteria():
         @type result_container : string
         @keyword result_container: Container object for storing the result with keys as the feature_id
         '''
-        (main_codes, other_codes) = CriteriaManager.get_available_diseases()
-        all_diseases = main_codes + other_codes
+#         (main_codes, other_codes) = CriteriaManager.get_available_diseases()
+#         all_diseases = main_codes + other_codes
 
         result_container_ = result_container
         if config is None:
-            print('config is none')
             config = IniParser.read_ini(ini_file='criteria.ini')
 
         dis_dict = dict()
         criteria_disease_dict = {}
 
-        for disease in all_diseases:
+        for disease in cls.site_enabled_diseases:
                 dis_dict[disease] = []
                 criteria_dict = cls.get_criteria_dict(disease, disease)
                 if len(result_container_.get(feature_id, {})) > 0:
@@ -313,7 +322,8 @@ class Criteria():
         @type  disease_list: string
         @param disease_list: list of disease codes eg: ['T1D', 'MS', 'AA']
         '''
-        (core_diseases, other_diseases) = CriteriaManager.get_available_diseases()
+        core_diseases = cls.main_codes
+        other_diseases = cls.other_codes
 
         score = 0
         for disease_key in disease_list:
@@ -463,11 +473,13 @@ class Criteria():
         agg = Agg("criteria_disease_tags", "terms", {"field": "disease_tags", "size": 0})
         aggs = Aggs(agg)
         search = Search(query, aggs=aggs, idx=idx)
-        r_aggs = search.search().aggs
-        print(r_aggs['criteria_disease_tags'].get_buckets())
-        buckets = r_aggs['criteria_disease_tags'].get_buckets()
-
-        disease_tags = [dis_dict['key'].lower() for dis_dict in buckets]
+        disease_tags = []
+        try:
+            r_aggs = search.search().aggs
+            buckets = r_aggs['criteria_disease_tags'].get_buckets()
+            disease_tags = [dis_dict['key'].lower() for dis_dict in buckets]
+        except:
+            return []
 
         # get disease docs
         query = ElasticQuery(Query.ids(disease_tags))

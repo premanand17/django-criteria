@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render  # @UnusedImport
 
 # Create your views here.
 class GeneView():
