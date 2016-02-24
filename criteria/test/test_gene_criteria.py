@@ -4,6 +4,8 @@ import os
 import criteria
 from data_pipeline.utils import IniParser
 from criteria.helper.gene_criteria import GeneCriteria
+from django.core.management import call_command
+import requests
 
 IDX_SUFFIX = ElasticSettings.getattr('TEST')
 MY_INI_FILE = os.path.join(os.path.dirname(__file__), IDX_SUFFIX + '_test_criteria.ini')
@@ -26,11 +28,14 @@ def setUpModule():
     global INI_CONFIG
     INI_CONFIG = IniParser().read_ini(MY_INI_FILE)
 
+    # create the gene index
+    call_command('criteria_index', '--feature', 'gene', '--test')
+
 
 def tearDownModule():
-    # remove index created
-    # requests.delete(ElasticSettings.url() + '/' + INI_CONFIG['GENE_HISTORY']['index'])
     os.remove(MY_INI_FILE)
+    # remove index created
+    requests.delete(ElasticSettings.url() + '/' + INI_CONFIG['DEFAULT']['CRITERIA_IDX_GENE'])
 
 
 class GeneCriteriaTest(TestCase):
@@ -284,12 +289,13 @@ class GeneCriteriaTest(TestCase):
         self.assertIn('cand_gene_in_study', available_criterias['gene'])
         self.assertEqual(available_criterias.keys(), expected_dict.keys(), 'Dic keys equal')
 
-    def test_get_criteria_details(self):
-
-        feature_id = 'ENSG00000134242'
-        criteria_details = GeneCriteria.get_criteria_details(feature_id)
-
-        criterias = criteria_details[feature_id].keys()
-        self.assertIn('cand_gene_in_study', criterias)
-        self.assertIn('gene_in_region', criterias)
-        self.assertIn('cand_gene_in_region', criterias)
+#     @override_settings(ELASTIC=OVERRIDE_SETTINGS)
+#     def test_get_criteria_details(self):
+#         config = IniParser().read_ini(MY_INI_FILE)
+#         feature_id = 'ENSG00000163599'
+#         criteria_details = GeneCriteria.get_criteria_details(feature_id, config=config)
+#
+#         criterias = criteria_details[feature_id].keys()
+#         self.assertIn('cand_gene_in_study', criterias)
+#         self.assertIn('gene_in_region', criterias)
+#         self.assertIn('cand_gene_in_region', criterias)

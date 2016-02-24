@@ -8,7 +8,8 @@ class Command(BaseCommand):
     Command lines for loading criteria data.
     Criteria meta info:
     ./manage.py criteria_index --feature gene --criteria cand_gene_in_study
-    ./manage.py criteria_index --feature all --criteria is_in_mhc
+    ./manage.py criteria_index --feature gene --test
+    ./manage.py criteria_index --feature marker --criteria is_in_mhc
     '''
     help = "Create criteria indexes(s)."
 
@@ -23,6 +24,10 @@ class Command(BaseCommand):
                             dest='show',
                             action='store_true',
                             help='List all criterias')
+        parser.add_argument('--test',
+                            dest='test',
+                            action='store_true',
+                            help='Run in test mode')
 
     def handle(self, *args, **options):
         criteria_manager = CriteriaManager()
@@ -34,5 +39,12 @@ class Command(BaseCommand):
             criteria_ = options['criteria']
         if 'show' in options:
             show_ = options['show']
+        if 'test' in options:
+            test_ = options['test']
 
-        criteria_manager.process_criterias(feature=feature_, criteria=criteria_, show=show_)
+        if test_:
+            config_ = criteria_manager.get_criteria_config(ini_file='test_criteria.ini')
+        else:
+            config_ = criteria_manager.get_criteria_config(ini_file='criteria.ini')
+
+        criteria_manager.process_criterias(feature=feature_, criteria=criteria_, config=config_, show=show_, test=test_)

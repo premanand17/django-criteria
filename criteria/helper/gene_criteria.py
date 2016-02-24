@@ -47,6 +47,11 @@ class GeneCriteria(Criteria):
         feature_doc = hit['_source']
         feature_doc['_id'] = hit['_id']
 
+        disease_loci = feature_doc["disease_locus"].lower()
+
+        if disease_loci == 'tbc':
+            return result_container
+
         genes = []
         if 'genes' in feature_doc:
             genes = feature_doc['genes']
@@ -63,11 +68,6 @@ class GeneCriteria(Criteria):
             return result_container
 
         if status != 'N':
-            return result_container
-
-        disease_loci = feature_doc["disease_locus"].lower()
-
-        if disease_loci == 'tbc':
             return result_container
 
         region_index = ElasticSettings.idx('REGION', idx_type='STUDY_HITS')
@@ -208,10 +208,10 @@ class GeneCriteria(Criteria):
         return available_criterias
 
     @classmethod
-    def get_criteria_details(cls, feature_id, idx=None, idx_type=None, criteria_id=None):
+    def get_criteria_details(cls, feature_id, idx=None, idx_type=None, criteria_id=None, config=None):
 
         # get all the criterias from ini
-        available_criterias = cls.get_available_criterias()
+        available_criterias = cls.get_available_criterias(config=config)
         idx_type = None
         for feature, criteria_list in available_criterias.items():  # @UnusedVariable
             idx_type = ','.join(criteria_list)
