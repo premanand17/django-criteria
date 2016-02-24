@@ -4,6 +4,8 @@ import os
 import criteria
 from data_pipeline.utils import IniParser
 from criteria.helper.marker_criteria import MarkerCriteria
+from django.core.management import call_command
+import requests
 
 IDX_SUFFIX = ElasticSettings.getattr('TEST')
 MY_INI_FILE = os.path.join(os.path.dirname(__file__), IDX_SUFFIX + '_test_criteria.ini')
@@ -26,11 +28,14 @@ def setUpModule():
     global INI_CONFIG
     INI_CONFIG = IniParser().read_ini(MY_INI_FILE)
 
+    # create the gene index
+    call_command('criteria_index', '--feature', 'marker', '--test')
+
 
 def tearDownModule():
-    # remove index created
-    # requests.delete(ElasticSettings.url() + '/' + INI_CONFIG['GENE_HISTORY']['index'])
     os.remove(MY_INI_FILE)
+    # remove index created
+    requests.delete(ElasticSettings.url() + '/' + INI_CONFIG['DEFAULT']['CRITERIA_IDX_MARKER'])
 
 
 class MarkerCriteriaTest(TestCase):
