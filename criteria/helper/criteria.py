@@ -70,7 +70,7 @@ class Criteria():
 
         if test_mode:
             url = ElasticSettings.url()
-            url_search = (source_idx + '/_search?size=100')
+            url_search = (source_idx + '/_search?size=20')
             response = Search.elastic_request(url, url_search, data=json.dumps(query.query))
             process_hits(response.json())
         else:
@@ -521,23 +521,6 @@ class Criteria():
         '''
         query = ElasticQuery(Query.term("qid", feature_id))
         search = Search(query, idx=idx, idx_type=idx_type)
-
-        elastic_docs = search.search().docs
-        result_dict = dict()
-        for doc in elastic_docs:
-
-            meta = getattr(doc, '_meta')
-            criteria_type = meta['_type']
-
-            if criteria_id is not None and criteria_type != criteria_id:
-                continue
-
-            if feature_id not in result_dict:
-                result_dict[feature_id] = {}
-
-            if criteria_type not in result_dict[feature_id]:
-                result_dict[feature_id][criteria_type] = {}
-
-            result_dict[feature_id][criteria_type] = doc
-
-        return(result_dict)
+#        elastic_docs = search.search().docs
+        criteria_hits = search.get_json_response()['hits']
+        return(criteria_hits)

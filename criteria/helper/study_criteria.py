@@ -16,6 +16,8 @@ class StudyCriteria(Criteria):
 
     '''
 
+    FEATURE_TYPE = 'study'
+
     @classmethod
     def study_for_disease(cls, hit, section=None, config=None, result_container={}):
 

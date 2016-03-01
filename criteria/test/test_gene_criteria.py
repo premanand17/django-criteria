@@ -6,6 +6,9 @@ from data_pipeline.utils import IniParser
 from criteria.helper.gene_criteria import GeneCriteria
 from django.core.management import call_command
 import requests
+from criteria.test.settings_idx import OVERRIDE_SETTINGS
+from django.test.utils import override_settings
+from elastic.utils import ElasticUtils
 
 IDX_SUFFIX = ElasticSettings.getattr('TEST')
 MY_INI_FILE = os.path.join(os.path.dirname(__file__), IDX_SUFFIX + '_test_criteria.ini')
@@ -289,13 +292,31 @@ class GeneCriteriaTest(TestCase):
         self.assertIn('cand_gene_in_study', available_criterias['gene'])
         self.assertEqual(available_criterias.keys(), expected_dict.keys(), 'Dic keys equal')
 
-#     @override_settings(ELASTIC=OVERRIDE_SETTINGS)
-#     def test_get_criteria_details(self):
-#         config = IniParser().read_ini(MY_INI_FILE)
-#         feature_id = 'ENSG00000163599'
-#         criteria_details = GeneCriteria.get_criteria_details(feature_id, config=config)
-#
-#         criterias = criteria_details[feature_id].keys()
-#         self.assertIn('cand_gene_in_study', criterias)
-#         self.assertIn('gene_in_region', criterias)
-#         self.assertIn('cand_gene_in_region', criterias)
+    @override_settings(ELASTIC=OVERRIDE_SETTINGS)
+    def test_get_criteria_details(self):
+        config = IniParser().read_ini(MY_INI_FILE)
+        idx = ElasticSettings.idx('GENE_CRITERIA')
+        available_criterias = GeneCriteria.get_available_criterias(config=config)['gene']
+        idx_type = ','.join(available_criterias)
+        doc_by_idx_type = ElasticUtils.get_rdm_docs(idx, idx_type, size=1)
+        self.assertTrue(len(doc_by_idx_type) == 1)
+        feature_id = getattr(doc_by_idx_type[0], 'qid')
+
+        criteria_details = GeneCriteria.get_criteria_details(feature_id, config=config)
+
+        hits = criteria_details['hits']
+        first_hit = hits[0]
+        _type = first_hit['_type']
+        _index = first_hit['_index']
+        _id = first_hit['_id']
+        _source = first_hit['_source']
+
+        disease_tag = _source['disease_tags'][0]
+        self.assertTrue(feature_id, _id)
+        self.assertIn(_type, idx_type)
+        self.assertTrue(idx, _index)
+        self.assertIn(disease_tag, list(_source.keys()))
+
+        fdetails = _source[disease_tag][0]
+        self.assertIn('fid', fdetails.keys())
+        self.assertIn('fname', fdetails.keys())

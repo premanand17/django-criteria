@@ -17,6 +17,9 @@ class RegionCriteria(Criteria):
     ''' RegionCriteria class define functions for building region criterias, each as separate index types
 
     '''
+
+    FEATURE_TYPE = 'region'
+
     @classmethod
     def tag_feature_to_disease(cls, feature_doc, section, config, result_container={}):
         feature_class = cls.__name__

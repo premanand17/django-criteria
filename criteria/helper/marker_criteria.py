@@ -20,6 +20,9 @@ class MarkerCriteria(Criteria):
 
     ''' MarkerCriteria class define functions for building marker criterias, each as separate index types
     '''
+
+    FEATURE_TYPE = 'marker'
+
     @classmethod
     def is_an_index_snp(cls, hit, section=None, config=None, result_container={}):
 
@@ -263,7 +266,7 @@ class MarkerCriteria(Criteria):
         if config is None:
             config = CriteriaManager.get_criteria_config()
 
-        available_criterias = Criteria.get_available_criterias('marker', config)
+        available_criterias = Criteria.get_available_criterias(cls.FEATURE_TYPE, config)
         return available_criterias
 
     @classmethod
