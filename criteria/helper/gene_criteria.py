@@ -200,10 +200,13 @@ class GeneCriteria(Criteria):
         return docs
 
     @classmethod
-    def get_available_criterias(cls, feature='gene', config=None):
-        'Function to get available criterias'
+    def get_available_criterias(cls, feature=None, config=None):
+        'Function to get available criterias for gene'
         if config is None:
             config = CriteriaManager.get_criteria_config()
+
+        if feature is None:
+            feature = cls.FEATURE_TYPE
 
         available_criterias = Criteria.get_available_criterias(feature, config)
         return available_criterias

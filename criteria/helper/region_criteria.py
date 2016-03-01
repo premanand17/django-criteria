@@ -88,25 +88,28 @@ class RegionCriteria(Criteria):
         return docs
 
     @classmethod
-    def get_available_criterias(cls, config=None):
-        'Function to get available criterias'
+    def get_available_criterias(cls, feature=None, config=None):
+        'Function to get available criterias for region'
         if config is None:
             config = CriteriaManager.get_criteria_config()
 
-        available_criterias = Criteria.get_available_criterias('region', config)
+        if feature is None:
+            feature = cls.FEATURE_TYPE
+
+        available_criterias = Criteria.get_available_criterias(feature, config)
         return available_criterias
 
     @classmethod
-    def get_criteria_details(cls, feature_id, idx=None, idx_type=None, criteria_id=None):
+    def get_criteria_details(cls, feature_id, idx=None, idx_type=None, config=None):
 
         # get all the criterias from ini
-        available_criterias = cls.get_available_criterias()
-        idx_type = None
-        for feature, criteria_list in available_criterias.items():  # @UnusedVariable
+        if idx_type is None:
+            available_criterias = cls.get_available_criterias(feature=cls.FEATURE_TYPE, config=config)
+            criteria_list = available_criterias[cls.FEATURE_TYPE]
             idx_type = ','.join(criteria_list)
 
         if idx is None:
-            idx = ElasticSettings.idx('REGION    _CRITERIA')
-        result_dict = Criteria.get_criteria_details(feature_id, idx, idx_type, criteria_id)
+            idx = ElasticSettings.idx('REGION_CRITERIA')
 
+        result_dict = Criteria.get_criteria_details(feature_id, idx, idx_type)
         return result_dict

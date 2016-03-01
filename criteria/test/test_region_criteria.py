@@ -4,6 +4,11 @@ import os
 import criteria
 from data_pipeline.utils import IniParser
 from criteria.helper.region_criteria import RegionCriteria
+from django.core.management import call_command
+import requests
+from criteria.test.settings_idx import OVERRIDE_SETTINGS
+from django.test.utils import override_settings
+from elastic.utils import ElasticUtils
 
 IDX_SUFFIX = ElasticSettings.getattr('TEST')
 MY_INI_FILE = os.path.join(os.path.dirname(__file__), IDX_SUFFIX + '_test_criteria.ini')
@@ -26,11 +31,14 @@ def setUpModule():
     global INI_CONFIG
     INI_CONFIG = IniParser().read_ini(MY_INI_FILE)
 
+    # create the gene index
+    call_command('criteria_index', '--feature', 'region', '--test')
+
 
 def tearDownModule():
-    # remove index created
-    # requests.delete(ElasticSettings.url() + '/' + INI_CONFIG['GENE_HISTORY']['index'])
     os.remove(MY_INI_FILE)
+    # remove index created
+    requests.delete(ElasticSettings.url() + '/' + INI_CONFIG['DEFAULT']['CRITERIA_IDX_REGION'])
 
 
 class RegionCriteriaTest(TestCase):
@@ -111,3 +119,33 @@ class RegionCriteriaTest(TestCase):
                                          'CEL': [{'fname': 'CEL', 'fid': 'CEL'}]}}
 
         self.assertEqual(criteria_results, expected_dict, 'Got result dict for is_region_in_mhc as expected')
+
+    @override_settings(ELASTIC=OVERRIDE_SETTINGS)
+    def test_get_criteria_details(self):
+        config = IniParser().read_ini(MY_INI_FILE)
+        idx = ElasticSettings.idx('REGION_CRITERIA')
+        available_criterias = RegionCriteria.get_available_criterias(config=config)['region']
+        idx_type = ','.join(available_criterias)
+
+        doc_by_idx_type = ElasticUtils.get_rdm_docs(idx, idx_type, size=1)
+        self.assertTrue(len(doc_by_idx_type) == 1)
+        feature_id = getattr(doc_by_idx_type[0], 'qid')
+
+        criteria_details = RegionCriteria.get_criteria_details(feature_id, config=config)
+
+        hits = criteria_details['hits']
+        first_hit = hits[0]
+        _type = first_hit['_type']
+        _index = first_hit['_index']
+        _id = first_hit['_id']
+        _source = first_hit['_source']
+
+        disease_tag = _source['disease_tags'][0]
+        self.assertTrue(feature_id, _id)
+        self.assertIn(_type, idx_type)
+        self.assertTrue(idx, _index)
+        self.assertIn(disease_tag, list(_source.keys()))
+
+        fdetails = _source[disease_tag][0]
+        self.assertIn('fid', fdetails.keys())
+        self.assertIn('fname', fdetails.keys())

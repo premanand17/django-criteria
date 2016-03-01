@@ -69,8 +69,13 @@ class Criteria():
         query = cls.get_elastic_query(section, config)
 
         if test_mode:
+            if feature == 'marker':
+                size = '100'
+            else:
+                size = '20'
+
             url = ElasticSettings.url()
-            url_search = (source_idx + '/_search?size=20')
+            url_search = (source_idx + '/_search?size=' + size)
             response = Search.elastic_request(url, url_search, data=json.dumps(query.query))
             process_hits(response.json())
         else:
@@ -94,7 +99,7 @@ class Criteria():
             seqid = '6'
             start_range = 25000000
             end_range = 35000000
-            field_list = section_config['source_fields']
+
             seqid_param = section_config['seqid_param']
             start_param = section_config['start_param']
             end_param = section_config['end_param']
@@ -108,7 +113,7 @@ class Criteria():
             # Defined MHC region as chr6:25,000,000..35,000,000
 
             query = ElasticUtils.range_overlap_query(seqid, start_range, end_range,
-                                                     field_list,
+                                                     source_fields,
                                                      seqid_param,
                                                      start_param,
                                                      end_param)
