@@ -74,14 +74,14 @@ class GeneCriteria(Criteria):
         region_index = ElasticSettings.idx('REGION', idx_type='STUDY_HITS')
         (region_idx, region_idx_type) = region_index.split('/')
 
-        print(region_idx + '  ' + region_idx_type)
+        # print(region_idx + '  ' + region_idx_type)
 
         gene_dict = cls.get_gene_docs_by_ensembl_id(genes, sources=['chromosome', 'start', 'stop'])
 
         for gene in gene_dict:
             # get position
             gene_doc = gene_dict[gene]
-            print(gene_doc.__dict__)
+            # print(gene_doc.__dict__)
             build = "38"  # get it from index name genes_hg38_v0.0.2 TODO
             seqid = getattr(gene_doc, "chromosome")
             start = getattr(gene_doc, "start")

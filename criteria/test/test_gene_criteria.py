@@ -19,8 +19,11 @@ INI_CONFIG = None
 def setUpModule():
     ''' Change ini config (MY_INI_FILE) to use the test suffix when
     creating pipeline indices. '''
+    global INI_CONFIG
     ini_file = os.path.join(os.path.dirname(__file__), 'test_criteria.ini')
+
     if os.path.isfile(MY_INI_FILE):
+        INI_CONFIG = IniParser().read_ini(MY_INI_FILE)
         return
 
     with open(MY_INI_FILE, 'w') as new_file:
@@ -28,7 +31,6 @@ def setUpModule():
             for line in old_file:
                 new_file.write(line.replace('auto_tests', IDX_SUFFIX))
 
-    global INI_CONFIG
     INI_CONFIG = IniParser().read_ini(MY_INI_FILE)
 
     # create the gene index
@@ -36,9 +38,10 @@ def setUpModule():
 
 
 def tearDownModule():
-    os.remove(MY_INI_FILE)
     # remove index created
+    global INI_CONFIG
     requests.delete(ElasticSettings.url() + '/' + INI_CONFIG['DEFAULT']['CRITERIA_IDX_GENE'])
+    os.remove(MY_INI_FILE)
 
 
 class GeneCriteriaTest(TestCase):

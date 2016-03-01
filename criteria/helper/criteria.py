@@ -21,6 +21,7 @@ class Criteria():
     (main_codes, other_codes) = CriteriaManager.get_available_diseases()
     site_enabled_diseases = main_codes + other_codes
     test_mode = False
+    gl_result_container = None
 
     @classmethod
     def process_criteria(cls, feature, section, config, sub_class, test=False):
@@ -37,6 +38,9 @@ class Criteria():
         @type  sub_class: string
         @param sub_class: The name of the inherited sub_class where the actual implementation is
         '''
+        print('+++++++++++ SECTION+++++++' + section)
+        global gl_result_container
+        gl_result_container = {}
         test_mode = test
         if config is None:
             if test_mode:
@@ -55,29 +59,34 @@ class Criteria():
 
         logger.warning(source_idx + ' ' + source_idx_type)
 
-        global gl_result_container
-        gl_result_container = {}
-
         def process_hits(resp_json):
-            hits = resp_json['hits']['hits']
             global gl_result_container
+            hits = resp_json['hits']['hits']
             for hit in hits:
+                print(hit)
                 result_container = sub_class.tag_feature_to_disease(hit, section, config,
                                                                     result_container=gl_result_container)
                 gl_result_container = result_container
+                print('  gl_result_container ' + str(len(gl_result_container)))
+
+                if test_mode:
+                    if(len(gl_result_container) > 5):
+                        return
 
         query = cls.get_elastic_query(section, config)
 
         if test_mode:
-            if feature == 'marker':
-                size = '100'
-            else:
-                size = '20'
-
-            url = ElasticSettings.url()
-            url_search = (source_idx + '/_search?size=' + size)
-            response = Search.elastic_request(url, url_search, data=json.dumps(query.query))
-            process_hits(response.json())
+            result_size = len(gl_result_container)
+            print('At start' + str(result_size))
+            from_ = 0
+            size_ = 20
+            while (result_size < 1):
+                from_ = from_ + size_
+                url = ElasticSettings.url()
+                url_search = (source_idx + '/_search?from=' + str(from_) + '&size=' + str(size_))
+                response = Search.elastic_request(url, url_search, data=json.dumps(query.query))
+                process_hits(response.json())
+                result_size = len(gl_result_container)
         else:
             ScanAndScroll.scan_and_scroll(source_idx, call_fun=process_hits, query=query)
 
@@ -264,14 +273,19 @@ class Criteria():
             fnotes.add_property('linkdata', "string", index="not_analyzed")
             fnotes.add_property('linkvalue', "string", index="not_analyzed")
             criteria_tags.add_properties(fnotes)
-
             props.add_properties(criteria_tags)
 
         ''' create index and add mapping '''
         load = Loader()
         options = {"indexName": idx, "shards": 5}
+
+        '''add meta info'''
+        config = CriteriaManager.get_criteria_config()
+        idx_type_cfg = config[idx_type]
+        desc = idx_type_cfg['desc']
+        meta = {"desc": desc}
         if not test_mode:
-            load.mapping(props, idx_type, analyzer=Loader.KEYWORD_ANALYZER, **options)
+            load.mapping(props, idx_type, meta=meta, analyzer=Loader.KEYWORD_ANALYZER, **options)
         return props
 
     @classmethod
@@ -365,6 +379,7 @@ class Criteria():
         '''
         json_data = ''
         line_num = 0
+
         for feature_id in result_container:
 
             if feature_id is None:
