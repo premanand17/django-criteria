@@ -9,6 +9,7 @@ import requests
 from criteria.test.settings_idx import OVERRIDE_SETTINGS
 from django.test.utils import override_settings
 from elastic.utils import ElasticUtils
+from elastic.search import Search
 
 IDX_SUFFIX = ElasticSettings.getattr('TEST')
 MY_INI_FILE = os.path.join(os.path.dirname(__file__), IDX_SUFFIX + '_test_criteria.ini')
@@ -35,6 +36,7 @@ def setUpModule():
 
     # create the gene index
     call_command('criteria_index', '--feature', 'gene', '--test')
+    Search.index_refresh(INI_CONFIG['DEFAULT']['CRITERIA_IDX_GENE'])
 
 
 def tearDownModule():
@@ -302,7 +304,7 @@ class GeneCriteriaTest(TestCase):
         available_criterias = GeneCriteria.get_available_criterias(config=config)['gene']
         idx_type = ','.join(available_criterias)
         doc_by_idx_type = ElasticUtils.get_rdm_docs(idx, idx_type, size=1)
-        self.assertTrue(len(doc_by_idx_type) == 1)
+        self.assertTrue(len(doc_by_idx_type) > 0)
         feature_id = getattr(doc_by_idx_type[0], 'qid')
 
         criteria_details = GeneCriteria.get_criteria_details(feature_id, config=config)

@@ -6,6 +6,7 @@ from data_pipeline.utils import IniParser
 from criteria.helper.study_criteria import StudyCriteria
 import requests
 from django.core.management import call_command
+from elastic.search import Search
 
 IDX_SUFFIX = ElasticSettings.getattr('TEST')
 MY_INI_FILE = os.path.join(os.path.dirname(__file__), IDX_SUFFIX + '_test_criteria.ini')
@@ -32,6 +33,7 @@ def setUpModule():
 
     # create the study index
     call_command('criteria_index', '--feature', 'study', '--test')
+    Search.index_refresh(INI_CONFIG['DEFAULT']['CRITERIA_IDX_STUDY'])
 
 
 def tearDownModule():

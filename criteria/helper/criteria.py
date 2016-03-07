@@ -83,7 +83,11 @@ class Criteria():
             while (result_size < 1):
                 from_ = from_ + size_
                 url = ElasticSettings.url()
-                url_search = (source_idx + '/_search?from=' + str(from_) + '&size=' + str(size_))
+                if 'mhc' in section:
+                    url_search = (source_idx + '/_search')
+                else:
+                    url_search = (source_idx + '/_search?from=' + str(from_) + '&size=' + str(size_))
+                print(url_search)
                 response = Search.elastic_request(url, url_search, data=json.dumps(query.query))
                 process_hits(response.json())
                 result_size = len(gl_result_container)
