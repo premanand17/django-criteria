@@ -20,9 +20,11 @@ class Criteria():
 
     (main_codes, other_codes) = CriteriaManager.get_available_diseases()
     site_enabled_diseases = main_codes + other_codes
+    test_mode = False
+    gl_result_container = None
 
     @classmethod
-    def process_criteria(cls, feature, section, config, sub_class):
+    def process_criteria(cls, feature, section, config, sub_class, test=False):
         ''' Top level function that calls the right criteria implementation based on the subclass passed. Iterates over all the
             documents using the ScanAndScroll and the hits are processed by the inner function process_hits.
             The entire result is stored in result_container (a dict), and at the end of the processing, the result is
@@ -36,9 +38,15 @@ class Criteria():
         @type  sub_class: string
         @param sub_class: The name of the inherited sub_class where the actual implementation is
         '''
-
+        print('+++++++++++ SECTION+++++++' + section)
+        global gl_result_container
+        gl_result_container = {}
+        test_mode = test
         if config is None:
-            config = CriteriaManager().get_criteria_config()
+            if test_mode:
+                config = CriteriaManager().get_criteria_config(ini_file='test_criteria.ini')
+            else:
+                config = CriteriaManager().get_criteria_config(ini_file='criteria.ini')
 
         section_config = config[section]
         source_idx = ElasticSettings.idx(section_config['source_idx'])
@@ -51,19 +59,41 @@ class Criteria():
 
         logger.warning(source_idx + ' ' + source_idx_type)
 
-        global gl_result_container
-        gl_result_container = {}
-
         def process_hits(resp_json):
-            hits = resp_json['hits']['hits']
             global gl_result_container
+            hits = resp_json['hits']['hits']
             for hit in hits:
+                print(hit)
                 result_container = sub_class.tag_feature_to_disease(hit, section, config,
                                                                     result_container=gl_result_container)
                 gl_result_container = result_container
+                print('  gl_result_container ' + str(len(gl_result_container)))
+
+                if test_mode:
+                    if(len(gl_result_container) > 5):
+                        return
 
         query = cls.get_elastic_query(section, config)
-        ScanAndScroll.scan_and_scroll(source_idx, call_fun=process_hits, query=query)
+
+        if test_mode:
+            result_size = len(gl_result_container)
+            print('At start' + str(result_size))
+            from_ = 0
+            size_ = 20
+            while (result_size < 1):
+                from_ = from_ + size_
+                url = ElasticSettings.url()
+                if 'mhc' in section:
+                    url_search = (source_idx + '/_search')
+                else:
+                    url_search = (source_idx + '/_search?from=' + str(from_) + '&size=' + str(size_))
+                print(url_search)
+                response = Search.elastic_request(url, url_search, data=json.dumps(query.query))
+                process_hits(response.json())
+                result_size = len(gl_result_container)
+        else:
+            ScanAndScroll.scan_and_scroll(source_idx, call_fun=process_hits, query=query)
+
         cls.map_and_load(feature, section, config, gl_result_container)
 
     @classmethod
@@ -82,7 +112,7 @@ class Criteria():
             seqid = '6'
             start_range = 25000000
             end_range = 35000000
-            field_list = section_config['source_fields']
+
             seqid_param = section_config['seqid_param']
             start_param = section_config['start_param']
             end_param = section_config['end_param']
@@ -96,7 +126,7 @@ class Criteria():
             # Defined MHC region as chr6:25,000,000..35,000,000
 
             query = ElasticUtils.range_overlap_query(seqid, start_range, end_range,
-                                                     field_list,
+                                                     source_fields,
                                                      seqid_param,
                                                      start_param,
                                                      end_param)
@@ -174,7 +204,7 @@ class Criteria():
 
         cls.create_criteria_mapping(criteria_idx, criteria_idx_type)
         cls.load_result_container(result_container, criteria_idx, criteria_idx_type)
-        print(criteria_idx + ' ' + criteria_idx_type + ' loaded successfully. DONE')
+        logger.warning(criteria_idx + ' ' + criteria_idx_type + ' loaded successfully. DONE')
 
     @classmethod
     def get_criteria_dict(cls, fid, fname, fnotes={}):
@@ -227,8 +257,8 @@ class Criteria():
         @type  test_mode:  string
         @param test_mode: flag to create or not create the mapping
         '''
-        print('Idx ' + idx)
-        print('Idx_type ' + idx_type)
+        logger.warning('Idx ' + idx)
+        logger.warning('Idx_type ' + idx_type)
         ''' Create the mapping for alias indexing '''
         props = MappingProperties(idx_type)
         props.add_property("score", "integer")
@@ -247,14 +277,19 @@ class Criteria():
             fnotes.add_property('linkdata', "string", index="not_analyzed")
             fnotes.add_property('linkvalue', "string", index="not_analyzed")
             criteria_tags.add_properties(fnotes)
-
             props.add_properties(criteria_tags)
 
         ''' create index and add mapping '''
         load = Loader()
         options = {"indexName": idx, "shards": 5}
+
+        '''add meta info'''
+        config = CriteriaManager.get_criteria_config()
+        idx_type_cfg = config[idx_type]
+        desc = idx_type_cfg['desc']
+        meta = {"desc": desc}
         if not test_mode:
-            load.mapping(props, idx_type, analyzer=Loader.KEYWORD_ANALYZER, **options)
+            load.mapping(props, idx_type, meta=meta, analyzer=Loader.KEYWORD_ANALYZER, **options)
         return props
 
     @classmethod
@@ -348,6 +383,7 @@ class Criteria():
         '''
         json_data = ''
         line_num = 0
+
         for feature_id in result_container:
 
             if feature_id is None:
@@ -429,7 +465,7 @@ class Criteria():
         return result_container_
 
     @classmethod
-    def get_available_criterias(cls, feature=None, config=None):
+    def get_available_criterias(cls, feature=None, config=None, test=False):
         ''' function to get avalable criterias for a given feature
         @type  feature: string
         @param feature: feature type, could be 'gene','region', 'marker' etc.,
@@ -437,7 +473,10 @@ class Criteria():
         @keyword config: The config object initialized from criteria.ini.
         '''
         if config is None:
-            config = CriteriaManager.get_criteria_config()
+            if test:
+                config = CriteriaManager.get_criteria_config(ini_file='test_criteria.ini')
+            else:
+                config = CriteriaManager.get_criteria_config(ini_file='criteria.ini')
 
         criteria_dict = dict()
         criteria_list = []
@@ -472,7 +511,12 @@ class Criteria():
         query = ElasticQuery(Query.term("qid", feature_id))
         agg = Agg("criteria_disease_tags", "terms", {"field": "disease_tags", "size": 0})
         aggs = Aggs(agg)
-        search = Search(query, aggs=aggs, idx=idx)
+
+        if idx_type:
+            search = Search(query, aggs=aggs, idx=idx, idx_type=idx_type)
+        else:
+            search = Search(query, aggs=aggs, idx=idx)
+
         disease_tags = []
         try:
             r_aggs = search.search().aggs
@@ -501,22 +545,6 @@ class Criteria():
         '''
         query = ElasticQuery(Query.term("qid", feature_id))
         search = Search(query, idx=idx, idx_type=idx_type)
-        elastic_docs = search.search().docs
-        result_dict = dict()
-        for doc in elastic_docs:
-
-            meta = getattr(doc, '_meta')
-            criteria_type = meta['_type']
-
-            if criteria_id is not None and criteria_type != criteria_id:
-                continue
-
-            if feature_id not in result_dict:
-                result_dict[feature_id] = {}
-
-            if criteria_type not in result_dict[feature_id]:
-                result_dict[feature_id][criteria_type] = {}
-
-            result_dict[feature_id][criteria_type] = doc
-
-        return(result_dict)
+#        elastic_docs = search.search().docs
+        criteria_hits = search.get_json_response()['hits']
+        return(criteria_hits)

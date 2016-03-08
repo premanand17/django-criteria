@@ -29,8 +29,6 @@ def setUpModule():
 
 
 def tearDownModule():
-    # remove index created
-    # requests.delete(ElasticSettings.url() + '/' + INI_CONFIG['GENE_HISTORY']['index'])
     os.remove(MY_INI_FILE)
 
 
@@ -156,14 +154,3 @@ class CriteriaTest(TestCase):
         available_criterias = Criteria.get_available_criterias(feature=None, config=INI_CONFIG)
         self.assertIn('gene', available_criterias)
         self.assertIn('marker', available_criterias)
-
-#     def test_get_criteria_details(self):
-#         feature_id = 'ENSG00000134242'
-#         idx = ElasticSettings.idx('GENE_CRITERIA')
-#         idx_type = 'cand_gene_in_study,gene_in_region'
-#         criteria_details = Criteria.get_criteria_details(feature_id, idx, idx_type)
-#
-#         criterias = criteria_details[feature_id].keys()
-#         self.assertIn('cand_gene_in_study', criterias)
-#         self.assertIn('gene_in_region', criterias)
-#         self.assertNotIn('cand_gene_in_region', criterias)
