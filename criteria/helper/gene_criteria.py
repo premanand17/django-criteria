@@ -16,6 +16,7 @@ class GeneCriteria(Criteria):
     ''' GeneCriteria class define functions for building gene criterias, each as separate index types
 
     '''
+    FEATURE_TYPE = 'gene'
 
     @classmethod
     def cand_gene_in_study(cls, hit, section=None, config=None, result_container={}):
@@ -73,14 +74,14 @@ class GeneCriteria(Criteria):
         region_index = ElasticSettings.idx('REGION', idx_type='STUDY_HITS')
         (region_idx, region_idx_type) = region_index.split('/')
 
-        print(region_idx + '  ' + region_idx_type)
+        # print(region_idx + '  ' + region_idx_type)
 
         gene_dict = cls.get_gene_docs_by_ensembl_id(genes, sources=['chromosome', 'start', 'stop'])
 
         for gene in gene_dict:
             # get position
             gene_doc = gene_dict[gene]
-            print(gene_doc.__dict__)
+            # print(gene_doc.__dict__)
             build = "38"  # get it from index name genes_hg38_v0.0.2 TODO
             seqid = getattr(gene_doc, "chromosome")
             start = getattr(gene_doc, "start")
@@ -199,25 +200,28 @@ class GeneCriteria(Criteria):
         return docs
 
     @classmethod
-    def get_available_criterias(cls, config=None):
-        'Function to get available criterias'
+    def get_available_criterias(cls, feature=None, config=None):
+        'Function to get available criterias for gene'
         if config is None:
             config = CriteriaManager.get_criteria_config()
 
-        available_criterias = Criteria.get_available_criterias('gene', config)
+        if feature is None:
+            feature = cls.FEATURE_TYPE
+
+        available_criterias = Criteria.get_available_criterias(feature, config)
         return available_criterias
 
     @classmethod
-    def get_criteria_details(cls, feature_id, idx=None, idx_type=None, criteria_id=None, config=None):
+    def get_criteria_details(cls, feature_id, idx=None, idx_type=None, config=None):
 
         # get all the criterias from ini
-        available_criterias = cls.get_available_criterias(config=config)
-        idx_type = None
-        for feature, criteria_list in available_criterias.items():  # @UnusedVariable
+        if idx_type is None:
+            available_criterias = cls.get_available_criterias(feature=cls.FEATURE_TYPE, config=config)
+            criteria_list = available_criterias[cls.FEATURE_TYPE]
             idx_type = ','.join(criteria_list)
 
         if idx is None:
             idx = ElasticSettings.idx('GENE_CRITERIA')
-        result_dict = Criteria.get_criteria_details(feature_id, idx, idx_type, criteria_id)
 
+        result_dict = Criteria.get_criteria_details(feature_id, idx, idx_type)
         return result_dict

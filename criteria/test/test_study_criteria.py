@@ -4,6 +4,9 @@ import os
 import criteria
 from data_pipeline.utils import IniParser
 from criteria.helper.study_criteria import StudyCriteria
+import requests
+from django.core.management import call_command
+from elastic.search import Search
 
 IDX_SUFFIX = ElasticSettings.getattr('TEST')
 MY_INI_FILE = os.path.join(os.path.dirname(__file__), IDX_SUFFIX + '_test_criteria.ini')
@@ -14,8 +17,11 @@ INI_CONFIG = None
 def setUpModule():
     ''' Change ini config (MY_INI_FILE) to use the test suffix when
     creating pipeline indices. '''
+    global INI_CONFIG
     ini_file = os.path.join(os.path.dirname(__file__), 'test_criteria.ini')
+
     if os.path.isfile(MY_INI_FILE):
+        INI_CONFIG = IniParser().read_ini(MY_INI_FILE)
         return
 
     with open(MY_INI_FILE, 'w') as new_file:
@@ -23,13 +29,17 @@ def setUpModule():
             for line in old_file:
                 new_file.write(line.replace('auto_tests', IDX_SUFFIX))
 
-    global INI_CONFIG
     INI_CONFIG = IniParser().read_ini(MY_INI_FILE)
+
+    # create the study index
+    call_command('criteria_index', '--feature', 'study', '--test')
+    Search.index_refresh(INI_CONFIG['DEFAULT']['CRITERIA_IDX_STUDY'])
 
 
 def tearDownModule():
     # remove index created
-    # requests.delete(ElasticSettings.url() + '/' + INI_CONFIG['GENE_HISTORY']['index'])
+    global INI_CONFIG
+    requests.delete(ElasticSettings.url() + '/' + INI_CONFIG['DEFAULT']['CRITERIA_IDX_STUDY'])
     os.remove(MY_INI_FILE)
 
 
