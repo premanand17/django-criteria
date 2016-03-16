@@ -17,6 +17,10 @@ logger = logging.getLogger(__name__)
 class MarkerCriteria(Criteria):
     global counter
     counter = 1
+    global all_counter
+    all_counter = 0
+    global error_counter
+    error_counter = 0
 
     ''' MarkerCriteria class define functions for building marker criterias, each as separate index types
     '''
@@ -81,9 +85,7 @@ class MarkerCriteria(Criteria):
     def is_marker_in_mhc(cls, hit, section=None, config=None, result_container={}):
         global counter
         feature_id = hit['_source']['id']
-        print(hit)
         result_container_ = cls.tag_feature_to_all_diseases(feature_id, section, config, result_container)
-        print(str(counter) + ' Feature id ' + feature_id)
         counter = counter + 1
         return result_container_
 
@@ -117,9 +119,6 @@ class MarkerCriteria(Criteria):
 
         dil_study_id = feature_doc["dil_study_id"]
 
-        global counter
-        counter = counter + 1
-
         # get the markers that is in ld with the above marker and add it as fid, fname
         # http://tim-rh3:8000/rest/ld/?build=GRCh38&dataset=--EUR--&dprime=0&format=json&m1=rs6679677&rsq=0.8
         # query marker1 over the marker index to get the seqid and call the ld_run wiht right parameters
@@ -152,12 +151,20 @@ class MarkerCriteria(Criteria):
         ld = json.loads(str(ld_str))
 
         if 'error' in ld:
+            global error_counter
+            error_counter = error_counter + 1
             return result_container
 
         marker_list = ld['ld']
 
         if marker_list is None or len(marker_list) == 0:
             return result_container
+
+        global counter
+        counter = counter + 1
+
+        global all_counter
+        all_counter = all_counter + len(marker_list)
 
         query = ElasticQuery(Query.ids([dil_study_id]))
         elastic = Search(search_query=query, idx=ElasticSettings.idx('STUDY', 'STUDY'), size=1)
@@ -185,7 +192,7 @@ class MarkerCriteria(Criteria):
         return result_container
 
     @classmethod
-    def marker_is_gwas_significant(cls, hit, section=None, config=None, result_container={}):
+    def marker_is_gwas_significant_in_study(cls, hit, section=None, config=None, result_container={}):
         gw_sig_p = 0.00000005
         feature_doc = hit['_source']
         feature_doc['_id'] = hit['_id']
@@ -242,6 +249,70 @@ class MarkerCriteria(Criteria):
             study_doc = elastic.search().docs[0]
             author = getattr(study_doc, 'authors')[0]
             first_author = author['name'] + ' ' + author['initials']
+            fnotes = {'linkdata': 'pval', 'linkvalue': p_val_to_compare,
+                      'linkid': dil_study_id, 'linkname': first_author}
+            result_container_populated = cls.populate_container(dil_study_id,
+                                                                first_author,
+                                                                fnotes=fnotes, features=[marker],
+                                                                diseases=[disease],
+                                                                result_container=result_container)
+            return result_container_populated
+        else:
+            return result_container
+
+    @classmethod
+    def marker_is_gwas_significant_in_ic(cls, hit, section=None, config=None, result_container={}):
+        '''
+        /hg38_gwas_statistics,hg38_ic_statistics/_search?pretty' -d '{"query":{"range":{"p_value":{"lt": 0.00000005}}}}'
+        '''
+
+        gw_sig_p = 0.00000005
+        feature_doc = hit['_source']
+        feature_doc['_id'] = hit['_id']
+
+        idx = hit['_index']
+        idx_type = hit['_type']
+
+        # get meta data
+        # studyid and diseaes
+        elastic_url = ElasticSettings.url()
+        meta_url = idx + '/' + idx_type + '/_mapping'
+        meta_response = Search.elastic_request(elastic_url, meta_url, is_post=False)
+
+        try:
+            elastic_meta = json.loads(meta_response.content.decode("utf-8"))
+            meta_info = elastic_meta[idx]['mappings'][idx_type]['_meta']
+            disease = meta_info['disease']
+            dil_study_id = meta_info['study']
+        except:
+            disease = None
+            dil_study_id = None
+
+        marker = None
+        if 'marker' in feature_doc:
+            marker = feature_doc['marker']
+
+        if marker is None or disease is None:
+            return result_container
+
+        p_val = feature_doc["p_value"]
+        if p_val is None:
+            return result_container
+        global counter
+        counter = counter + 1
+
+        p_val_to_compare = float(p_val)
+        if p_val_to_compare < gw_sig_p:
+            if dil_study_id is None or dil_study_id == 'None':
+                first_author = 'NA'
+                dil_study_id = 'NA'
+            else:
+                query = ElasticQuery(Query.ids([dil_study_id]))
+                elastic = Search(search_query=query, idx=ElasticSettings.idx('STUDY', 'STUDY'), size=1)
+                study_doc = elastic.search().docs[0]
+                author = getattr(study_doc, 'authors')[0]
+                first_author = author['name'] + ' ' + author['initials']
+
             fnotes = {'linkdata': 'pval', 'linkvalue': p_val_to_compare,
                       'linkid': dil_study_id, 'linkname': first_author}
             result_container_populated = cls.populate_container(dil_study_id,
