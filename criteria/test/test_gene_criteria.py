@@ -10,6 +10,8 @@ from criteria.test.settings_idx import OVERRIDE_SETTINGS
 from django.test.utils import override_settings
 from elastic.utils import ElasticUtils
 from elastic.search import Search
+import disease.document
+
 
 IDX_SUFFIX = ElasticSettings.getattr('TEST')
 MY_INI_FILE = os.path.join(os.path.dirname(__file__), IDX_SUFFIX + '_test_criteria.ini')
@@ -325,3 +327,36 @@ class GeneCriteriaTest(TestCase):
         fdetails = _source[disease_tag][0]
         self.assertIn('fid', fdetails.keys())
         self.assertIn('fname', fdetails.keys())
+
+    @override_settings(ELASTIC=OVERRIDE_SETTINGS)
+    def test_get_disease_tags_from_results(self):
+        config = IniParser().read_ini(MY_INI_FILE)
+        feature_id = self.get_random_feature_id()
+
+        criteria_details = GeneCriteria.get_criteria_details(feature_id, config=config)
+        dis_codes = GeneCriteria.get_disease_codes_from_results(criteria_details)
+        self.assertTrue(len(dis_codes) > 0, 'Got disease codes')
+
+    @override_settings(ELASTIC=OVERRIDE_SETTINGS)
+    def test_get_disease_tags_as_codes(self):
+
+        feature_id = self.get_random_feature_id()
+        disease_docs = GeneCriteria.get_disease_tags(feature_id)
+        disease_codes = GeneCriteria.get_disease_tags_as_codes(feature_id)
+        self.assertEqual(len(disease_docs), len(disease_codes), 'Got the same disease code size')
+
+        doc1 = disease_docs[0]
+        dis1 = disease_codes[0]
+
+        self.assertTrue(isinstance(doc1, disease.document.DiseaseDocument), 'Got the disease doc')
+        self.assertTrue(isinstance(dis1, str), 'Got the disease code')
+
+    def get_random_feature_id(self):
+        config = IniParser().read_ini(MY_INI_FILE)
+        idx = ElasticSettings.idx('GENE_CRITERIA')
+        available_criterias = GeneCriteria.get_available_criterias(config=config)['gene']
+        idx_type = ','.join(available_criterias)
+        doc_by_idx_type = ElasticUtils.get_rdm_docs(idx, idx_type, size=1)
+        self.assertTrue(len(doc_by_idx_type) > 0)
+        feature_id = getattr(doc_by_idx_type[0], 'qid')
+        return feature_id

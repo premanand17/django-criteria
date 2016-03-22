@@ -4,6 +4,7 @@ import os
 from builtins import classmethod
 from disease import utils
 import datetime
+from pydgin_auth.elastic_model_factory import ElasticPermissionModelFactory as elastic_factory
 
 # Get an instance of a logger
 logger = logging.getLogger(__name__)

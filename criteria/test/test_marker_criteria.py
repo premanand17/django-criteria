@@ -10,6 +10,7 @@ from criteria.test.settings_idx import OVERRIDE_SETTINGS
 from django.test.utils import override_settings
 from elastic.utils import ElasticUtils
 from elastic.search import Search
+from criteria.helper.criteria_manager import CriteriaManager
 
 IDX_SUFFIX = ElasticSettings.getattr('TEST')
 MY_INI_FILE = os.path.join(os.path.dirname(__file__), IDX_SUFFIX + '_test_criteria.ini')
@@ -111,6 +112,26 @@ class MarkerCriteriaTest(TestCase):
             }
             }
 
+        self.ic_stats1 = {
+            '_index': "hg38_ic_statistics",
+            '_type': "uc_liu",
+            '_id': "AVNW1YzIV5PGfwclZWaX",
+            '_score': 1,
+            '_source': {
+                'seqid': "1",
+                'alt_allele': "G",
+                'odds_ratio': 1.1046,
+                'lower_or': 1.0695,
+                'risk_allele': "A",
+                'marker': "rs6697886",
+                'raf': 0.137,
+                'position': 1238231,
+                'p_value': 2.64592978925e-8,
+                'imputed': 0,
+                'upper_or': 1.1397
+                }
+                          }
+
     def test_is_an_index_snp(self):
 
         config = IniParser().read_ini(MY_INI_FILE)
@@ -143,29 +164,47 @@ class MarkerCriteriaTest(TestCase):
         self.assertIn('rs11904361', criteria_results.keys(), 'rs11904361 found in results')
         self.assertIn('rs6725688', criteria_results.keys(), 'rs6725688 found in results')
 
-    def test_marker_is_gwas_significant(self):
+    def test_marker_is_gwas_significant_in_study(self):
         config = IniParser().read_ini(MY_INI_FILE)
-        criteria_results = MarkerCriteria.marker_is_gwas_significant(self.region_hit2,
-                                                                     config=config, result_container={})
+        criteria_results = MarkerCriteria.marker_is_gwas_significant_in_study(self.region_hit2,
+                                                                              config=config, result_container={})
         expected_results = {'rs6679677': {'CRO': [{'fname': 'Jostins L',
                                                    'fnotes': {'linkname': 'Jostins L', 'linkvalue': 2.03e-15,
                                                               'linkid': 'GDXHsS00021', 'linkdata': 'pval'},
                                                    'fid': 'GDXHsS00021'}]}}
 
         self.assertEqual(criteria_results, expected_results, "got expected results")
-        criteria_results = MarkerCriteria.marker_is_gwas_significant(self.region_hit3,
-                                                                     config=config, result_container={})
+        criteria_results = MarkerCriteria.marker_is_gwas_significant_in_study(self.region_hit3,
+                                                                              config=config, result_container={})
         expected_results = {}
         self.assertEqual(criteria_results, expected_results, "got expected results")
 
+    def test_marker_is_gwas_significant_in_ic(self):
+        config = IniParser().read_ini(MY_INI_FILE)
+        criteria_results = MarkerCriteria.marker_is_gwas_significant_in_ic(self.ic_stats1,
+                                                                           config=config, result_container={})
+        marker_id = self.ic_stats1['_source']['marker']
+        gw_sig_p = 0.00000005
+        criteria_results_fnotes = criteria_results[marker_id]['UC'][0]['fnotes']
+        self.assertEqual('pval', criteria_results_fnotes['linkdata'], 'pval is in linkdata')
+        p_val_to_compare = float(criteria_results_fnotes['linkvalue'])
+        self.assertTrue(p_val_to_compare < gw_sig_p, 'p val less than gwas significant pvalue')
+
+    @override_settings(ELASTIC=OVERRIDE_SETTINGS)
     def test_get_disease_tags(self):
-        disease_docs = MarkerCriteria.get_disease_tags('rs2476601')
+        config = IniParser().read_ini(MY_INI_FILE)
+        idx = ElasticSettings.idx('MARKER_CRITERIA')
+        available_criterias = MarkerCriteria.get_available_criterias(config=config)['marker']
+        idx_type = ','.join(available_criterias)
+        doc_by_idx_type = ElasticUtils.get_rdm_docs(idx, idx_type, size=1)
+        self.assertTrue(len(doc_by_idx_type) == 1)
+        feature_id = getattr(doc_by_idx_type[0], 'qid')
 
+        disease_docs = MarkerCriteria.get_disease_tags(feature_id)
+
+        self.assertIsNotNone(disease_docs, 'got back result docs')
         disease_tags = [getattr(disease_doc, 'code') for disease_doc in disease_docs]
-
-        self.assertIn('atd', disease_tags, 'atd in disease_tags')
-        self.assertIn('cro', disease_tags, 'cro in disease_tags')
-        self.assertIn('sle', disease_tags, 'sle in disease_tags')
+        self.assertIsNotNone(disease_tags, "got back disease tags")
 
     @override_settings(ELASTIC=OVERRIDE_SETTINGS)
     def test_get_criteria_details(self):
