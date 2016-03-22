@@ -194,10 +194,24 @@ class GeneCriteria(Criteria):
 
     @classmethod
     def get_disease_tags(cls, feature_id):
-        'Function to get disease tags for a given feature_id...delegated to parent class Criteria'
+        'Function to get disease tags for a given feature_id...delegated to parent class Criteria. Returns disease docs'
         idx = ElasticSettings.idx('GENE_CRITERIA')
         docs = Criteria.get_disease_tags(feature_id, idx)
         return docs
+
+    @classmethod
+    def get_disease_tags_as_codes(cls, feature_id):
+        '''Function to get disease tags for a given feature_id...delegated to parent class Criteria
+        Returns disease codes'''
+        disease_docs = cls.get_disease_tags(feature_id)
+        disease_codes = [getattr(disease_doc, 'code') for disease_doc in disease_docs]
+        return disease_codes
+
+    @classmethod
+    def get_disease_codes_from_results(cls, criteria_results):
+        idx = ElasticSettings.idx('GENE_CRITERIA')
+        codes = Criteria.get_disease_codes_from_results(idx, criteria_results)
+        return sorted(codes)
 
     @classmethod
     def get_available_criterias(cls, feature=None, config=None):
@@ -213,15 +227,18 @@ class GeneCriteria(Criteria):
 
     @classmethod
     def get_criteria_details(cls, feature_id, idx=None, idx_type=None, config=None):
+        'Function to get the criteria details for a given feature_id'
+        if idx is None:
+            idx = ElasticSettings.idx(cls.FEATURE_TYPE.upper()+'_CRITERIA')
 
         # get all the criterias from ini
+        criteria_list = []
         if idx_type is None:
             available_criterias = cls.get_available_criterias(feature=cls.FEATURE_TYPE, config=config)
             criteria_list = available_criterias[cls.FEATURE_TYPE]
             idx_type = ','.join(criteria_list)
 
-        if idx is None:
-            idx = ElasticSettings.idx('GENE_CRITERIA')
-
         result_dict = Criteria.get_criteria_details(feature_id, idx, idx_type)
-        return result_dict
+        result_dict_expanded = Criteria.add_meta_info(idx, criteria_list, result_dict)
+
+        return result_dict_expanded

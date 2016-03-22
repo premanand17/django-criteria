@@ -41,7 +41,6 @@ class Criteria():
         @type  sub_class: string
         @param sub_class: The name of the inherited sub_class where the actual implementation is
         '''
-        print('=====SECTION====' + section)
         global gl_result_container
         gl_result_container = {}
         test_mode = test
@@ -77,7 +76,7 @@ class Criteria():
             hits = resp_json['hits']['hits']
             global hit_counter
             for hit in hits:
-                print('======HIT COUNTER====' + str(hit_counter))
+                # print('======HIT COUNTER====' + str(hit_counter))
                 hit_counter = hit_counter + 1
 
                 result_container = sub_class.tag_feature_to_disease(hit, section, config,
@@ -110,7 +109,7 @@ class Criteria():
                     response = Search.elastic_request(url, url_search, data=json.dumps(query))
                     query = None
                 else:
-                    print(query)
+                    # print(query)
                     response = Search.elastic_request(url, url_search, data=json.dumps(query.query))
 
                 process_hits(response.json())
@@ -598,3 +597,67 @@ class Criteria():
             return meta_info
         except:
             return None
+
+    @classmethod
+    def get_meta_desc(cls, idx, criteria_list):
+        meta_desc = {}
+        for criteria in criteria_list:
+            meta_info = cls.get_meta_info(idx, criteria)
+            if meta_info is not None:
+                desc = meta_info['desc']
+
+                if idx not in meta_desc:
+                    meta_desc[idx] = {}
+
+                meta_desc[idx][criteria] = desc
+
+        return meta_desc
+
+    @classmethod
+    def get_link_info(cls, idx, criteria_list):
+
+        link_info = {}
+
+        criteria_config = CriteriaManager.get_criteria_config()
+        for criteria in criteria_list:
+            criteria_section = criteria_config[criteria]
+
+            if idx not in link_info:
+                    link_info[idx] = {}
+
+            if 'link_to_feature' in criteria_section:
+                link_to_feature = criteria_section['link_to_feature']
+                link_info[idx][criteria] = link_to_feature
+
+        return link_info
+
+    @classmethod
+    def get_disease_codes_from_results(cls, idx, criteria_results):
+
+        hits = criteria_results['hits']
+        disease_codes = []
+        for hit in hits:
+            if 'disease_tags' in hit['_source']:
+                dis_tag = hit['_source']['disease_tags']
+                disease_codes.extend(dis_tag)
+
+        uniq_list = set(disease_codes)
+        return list(uniq_list)
+
+    @classmethod
+    def add_meta_info(cls, idx, criteria_list, result_dict):
+
+        meta_desc = Criteria.get_meta_desc(idx, criteria_list)
+        if len(meta_desc) > 0:
+            result_dict['meta_info'] = meta_desc
+
+        # get the link_info and attach to the result_dict
+        link_info = Criteria.get_link_info(idx, criteria_list)
+        if len(link_info) > 0:
+            result_dict['link_info'] = link_info
+
+        agg_disease_tags = Criteria.get_disease_codes_from_results(idx, result_dict)
+        if len(agg_disease_tags) > 0:
+            result_dict['agg_disease_tags'] = agg_disease_tags
+
+        return result_dict

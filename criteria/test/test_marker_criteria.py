@@ -10,6 +10,7 @@ from criteria.test.settings_idx import OVERRIDE_SETTINGS
 from django.test.utils import override_settings
 from elastic.utils import ElasticUtils
 from elastic.search import Search
+from criteria.helper.criteria_manager import CriteriaManager
 
 IDX_SUFFIX = ElasticSettings.getattr('TEST')
 MY_INI_FILE = os.path.join(os.path.dirname(__file__), IDX_SUFFIX + '_test_criteria.ini')
