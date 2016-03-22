@@ -39,10 +39,10 @@ class RegionCriteria(Criteria):
     @classmethod
     def is_region_for_disease(cls, hit, section=None, config=None, result_container={}):
 
+        result_container_populated = result_container
         feature_doc = hit['_source']
         feature_doc['_id'] = hit['_id']
         disease_loci = feature_doc['disease_loci']
-        region_name = feature_doc['region_name']
         region_id = feature_doc['region_id']
 
         diseases = set()
@@ -72,12 +72,13 @@ class RegionCriteria(Criteria):
 
                     diseases.add(disease)
 
-        result_container_populated = cls.populate_container(region_id,
-                                                            region_name,
-                                                            fnotes=None, features=[region_id],
-                                                            diseases=list(diseases),
-                                                            result_container=result_container)
+        for disease in diseases:
 
+            result_container_populated = cls.populate_container(disease,
+                                                                disease,
+                                                                fnotes=None, features=[region_id],
+                                                                diseases=[disease],
+                                                                result_container=result_container_populated)
         return result_container_populated
 
     @classmethod
@@ -86,6 +87,20 @@ class RegionCriteria(Criteria):
         idx = ElasticSettings.idx('REGION_CRITERIA')
         docs = Criteria.get_disease_tags(feature_id, idx)
         return docs
+
+    @classmethod
+    def get_disease_codes_from_results(cls, criteria_results):
+        idx = ElasticSettings.idx('REGION_CRITERIA')
+        codes = Criteria.get_disease_codes_from_results(idx, criteria_results)
+        return sorted(codes)
+
+    @classmethod
+    def get_disease_tags_as_codes(cls, feature_id):
+        '''Function to get disease tags for a given feature_id...delegated to parent class Criteria
+        Returns disease codes'''
+        disease_docs = cls.get_disease_tags(feature_id)
+        disease_codes = [getattr(disease_doc, 'code') for disease_doc in disease_docs]
+        return disease_codes
 
     @classmethod
     def get_available_criterias(cls, feature=None, config=None):
@@ -101,15 +116,17 @@ class RegionCriteria(Criteria):
 
     @classmethod
     def get_criteria_details(cls, feature_id, idx=None, idx_type=None, config=None):
+        'Function to get the criteria details for a given feature_id'
+        if idx is None:
+            idx = ElasticSettings.idx(cls.FEATURE_TYPE.upper()+'_CRITERIA')
 
         # get all the criterias from ini
+        criteria_list = []
         if idx_type is None:
             available_criterias = cls.get_available_criterias(feature=cls.FEATURE_TYPE, config=config)
             criteria_list = available_criterias[cls.FEATURE_TYPE]
             idx_type = ','.join(criteria_list)
 
-        if idx is None:
-            idx = ElasticSettings.idx('REGION_CRITERIA')
-
         result_dict = Criteria.get_criteria_details(feature_id, idx, idx_type)
-        return result_dict
+        result_dict_expanded = Criteria.add_meta_info(idx, criteria_list, result_dict)
+        return result_dict_expanded

@@ -91,13 +91,13 @@ class RegionCriteriaTest(TestCase):
         config = IniParser().read_ini(MY_INI_FILE)
         criteria_results = RegionCriteria.is_region_for_disease(self.region_region1, config=config, result_container={})
 
-        expected_dict = {'1p36.32_002': {'IBD': [{'fid': '1p36.32_002', 'fname': '1p36.32'}],
-                                         'PSC': [{'fid': '1p36.32_002', 'fname': '1p36.32'}],
-                                         'CEL': [{'fid': '1p36.32_002', 'fname': '1p36.32'}],
-                                         'RA': [{'fid': '1p36.32_002', 'fname': '1p36.32'}],
-                                         'UC': [{'fid': '1p36.32_002', 'fname': '1p36.32'}],
-                                         'ATD': [{'fid': '1p36.32_002', 'fname': '1p36.32'}],
-                                         'MS': [{'fid': '1p36.32_002', 'fname': '1p36.32'}]}}
+        expected_dict = {'1p36.32_002': {'IBD': [{'fid': 'IBD', 'fname': 'IBD'}],
+                                         'PSC': [{'fid': 'PSC', 'fname': 'PSC'}],
+                                         'CEL': [{'fid': 'CEL', 'fname': 'CEL'}],
+                                         'RA': [{'fid': 'RA', 'fname': 'RA'}],
+                                         'UC': [{'fid': 'UC', 'fname': 'UC'}],
+                                         'ATD': [{'fid': 'ATD', 'fname': 'ATD'}],
+                                         'MS': [{'fid': 'MS', 'fname': 'MS'}]}}
 
         self.assertEqual(criteria_results, expected_dict, 'Got result dict for is_region_for_disease as expected')
 
