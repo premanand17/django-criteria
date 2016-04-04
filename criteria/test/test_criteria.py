@@ -184,3 +184,17 @@ class CriteriaTest(TestCase):
                          'Got the right link to feature for cand_gene_in_region')
         self.assertEqual(link_info[idx]['is_gene_in_mhc'], 'gene',
                          'Got the right link to feature for is_gene_in_mhc')
+
+    def test_get_feature_idx_n_idxtypes(self):
+
+        (idx, idx_types) = Criteria.get_feature_idx_n_idxtypes('gene')
+        self.assertEqual('pydgin_imb_criteria_gene', idx, 'Got the right idx back')
+        self.assertIn('cand_gene_in_study', idx_types, 'Got the right idx type back')
+        self.assertIn('cand_gene_in_region', idx_types, 'Got the right idx type back')
+
+        (idx, idx_types) = Criteria.get_feature_idx_n_idxtypes('marker')
+        self.assertEqual('pydgin_imb_criteria_marker', idx, 'Got the right idx back')
+
+        self.assertIn('is_an_index_snp', idx_types, 'Got the right idx type back')
+        self.assertIn('marker_is_gwas_significant_in_study', idx_types, 'Got the right idx type back')
+        self.assertIn('is_marker_in_mhc', idx_types, 'Got the right idx type back')
