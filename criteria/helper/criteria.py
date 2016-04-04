@@ -585,6 +585,40 @@ class Criteria():
         return(criteria_hits)
 
     @classmethod
+    def get_all_criteria_disease_tags(cls, qids, idx, idx_type):
+
+        query = ElasticQuery(Query.terms("qid", qids), sources=['disease_tags', 'qid'])
+        search = Search(query, idx=idx, idx_type=idx_type)
+        criteria_hits = search.get_json_response()['hits']
+        hits = criteria_hits['hits']
+
+        criteria_disease_tags = {}
+        for hit in hits:
+            if idx == hit['_index']:
+                qid = hit['_source']['qid']
+
+                if qid not in criteria_disease_tags:
+                    criteria_disease_tags[qid] = {}
+                criteria_disease_tags[qid][hit['_type']] = hit['_source']['disease_tags']
+
+        for fid in criteria_disease_tags:
+            disease_tags_all = cls.get_all_criteria_disease_tags_aggregated(qid, criteria_disease_tags[qid])
+            criteria_disease_tags[fid]['all'] = disease_tags_all
+
+        return(criteria_disease_tags)
+
+    @classmethod
+    def get_all_criteria_disease_tags_aggregated(cls, qid, criteria_disease_tags):
+
+        disease_tags_all = []
+        for ftype in criteria_disease_tags:
+            disease_tags = criteria_disease_tags[ftype]
+            disease_tags_all.extend(disease_tags)
+
+        uniq_list = set(disease_tags_all)
+        return list(uniq_list)
+
+    @classmethod
     def get_meta_info(cls, idx, idx_type):
         elastic_url = ElasticSettings.url()
         meta_url = idx + '/' + idx_type + '/_mapping'
@@ -661,3 +695,14 @@ class Criteria():
             result_dict['agg_disease_tags'] = agg_disease_tags
 
         return result_dict
+
+    @classmethod
+    def get_feature_idx_n_idxtypes(cls, feature_type):
+
+        idx = ElasticSettings.idx(feature_type.upper()+'_CRITERIA')
+
+        available_criterias = cls.get_available_criterias(feature=feature_type)
+        criteria_list = available_criterias[feature_type]
+        idx_type = ','.join(criteria_list)
+
+        return (idx, idx_type)
