@@ -360,3 +360,16 @@ class GeneCriteriaTest(TestCase):
         self.assertTrue(len(doc_by_idx_type) > 0)
         feature_id = getattr(doc_by_idx_type[0], 'qid')
         return feature_id
+
+    @override_settings(ELASTIC=OVERRIDE_SETTINGS)
+    def test_get_all_criteria_disease_tags(self):
+
+        feature_id1 = self.get_random_feature_id()
+        feature_id2 = self.get_random_feature_id()
+        criteria_disease_tags = GeneCriteria.get_all_criteria_disease_tags([feature_id1,
+                                                                            feature_id2])
+
+        self.assertIn(feature_id1, criteria_disease_tags)
+        self.assertIn(feature_id2, criteria_disease_tags)
+        self.assertIn('all', criteria_disease_tags[feature_id1])
+        self.assertIn('all', criteria_disease_tags[feature_id2])
