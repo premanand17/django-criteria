@@ -208,6 +208,17 @@ class GeneCriteria(Criteria):
         return disease_codes
 
     @classmethod
+    def get_all_criteria_disease_tags(cls, qids, idx_type=None):
+
+        (idx, idx_types) = cls.get_feature_idx_n_idxtypes(cls.FEATURE_TYPE)
+
+        if idx_type is None:
+            idx_type = idx_types
+
+        criteria_disease_tags = Criteria.get_all_criteria_disease_tags(qids, idx, idx_type)
+        return(criteria_disease_tags)
+
+    @classmethod
     def get_disease_codes_from_results(cls, criteria_results):
         idx = ElasticSettings.idx('GENE_CRITERIA')
         codes = Criteria.get_disease_codes_from_results(idx, criteria_results)
