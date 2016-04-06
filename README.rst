@@ -71,20 +71,20 @@ Quick start
 ============================================
 Create Mapping and Loading Data into Elastic
 ============================================
-All the criterias are defined in criteria.ini, each section for one criteria.  Criteria indexes are derived from the source indexes. So make sure that the source indexes 
-exists and you are pointing to the right source index keys as defined in elastic_settings.
+	All the criterias are defined in criteria.ini, each section for one criteria.  Criteria indexes are derived from the source indexes. So make sure that the source indexes 
+	exists and you are pointing to the right source index keys as defined in elastic_settings.
+	
+	[cand_gene_in_study]
+	desc: Candidate Gene for a Study
+	feature: gene
+	link_to_feature: study
+	source_idx: STUDY
+	source_idx_type: STUDY
+	source_fields : study_id,genes,diseases,authors
+	test_id: ENSG00000136634
+	text:A <strong>candidate gene in a study</strong> is defined as a gene cited in the principal paper of one of our curated studies.  Following the link will take you to the study.
 
-[cand_gene_in_study]
-desc: Candidate Gene for a Study
-feature: gene
-link_to_feature: study
-source_idx: STUDY
-source_idx_type: STUDY
-source_fields : study_id,genes,diseases,authors
-test_id: ENSG00000136634
-text:A <strong>candidate gene in a study</strong> is defined as a gene cited in the principal paper of one of our curated studies.  Following the link will take you to the study.
-
-   Help:
+  Help:
   	./manage.py criteria_index --help
   
   Show (list the criterias, without creating them):
@@ -100,16 +100,16 @@ text:A <strong>candidate gene in a study</strong> is defined as a gene cited in 
 	  ./manage.py criteria_index --feature region --show
 	  (Output: ['is_region_in_mhc', 'is_region_for_disease'])
   
-  Run all criterias for feature gene (in normal mode):
+ Run all criterias for feature gene (in normal mode):
   	./manage.py criteria_index --feature gene
   
-  Run all criterias for feature gene (in test mode):
+ Run all criterias for feature gene (in test mode):
   	./manage.py criteria_index --feature gene --test
   
-  Run one criteria for feature gene:
+ Run one criteria for feature gene:
   	./manage.py criteria_index --feature gene --criteria cand_gene_in_study
   
-  Run one criteria for feature marker:
+ Run one criteria for feature marker:
   	./manage.py criteria_index --feature marker --criteria is_an_index_snp
   
   
