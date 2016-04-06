@@ -1,6 +1,7 @@
-------------------------------
+
+==========================
 Criteria (django-criteria)
---------------------------
+==========================
 Plugin to manage creation and management of criteria index
 
 Search is a Django app to run Elastic search queries.
@@ -21,7 +22,7 @@ Quick start
 
     INSTALLED_APPS = (
         ...
-        'elastic',
+        'criteria',
     )
 
 4. Update the Elastic settings in the settings.py::
