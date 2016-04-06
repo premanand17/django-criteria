@@ -84,10 +84,10 @@ Create Mapping and Loading Data into Elastic
 	test_id: ENSG00000136634
 	text:A <strong>candidate gene in a study</strong> is defined as a gene cited in the principal paper of one of our curated studies.  Following the link will take you to the study.
 
-  Help:
+Help:
   	./manage.py criteria_index --help
   
-  Show (list the criterias, without creating them):
+Show (list the criterias, without creating them):
 	  ./manage.py criteria_index --feature gene --show
 	  (Output: ['is_gene_in_mhc', 'cand_gene_in_study', 'cand_gene_in_region', 'gene_in_region'])
   
@@ -100,16 +100,16 @@ Create Mapping and Loading Data into Elastic
 	  ./manage.py criteria_index --feature region --show
 	  (Output: ['is_region_in_mhc', 'is_region_for_disease'])
   
- Run all criterias for feature gene (in normal mode):
+Run all criterias for feature gene (in normal mode):
   	./manage.py criteria_index --feature gene
   
- Run all criterias for feature gene (in test mode):
+Run all criterias for feature gene (in test mode):
   	./manage.py criteria_index --feature gene --test
   
- Run one criteria for feature gene:
+Run one criteria for feature gene:
   	./manage.py criteria_index --feature gene --criteria cand_gene_in_study
   
- Run one criteria for feature marker:
+Run one criteria for feature marker:
   	./manage.py criteria_index --feature marker --criteria is_an_index_snp
   
   
