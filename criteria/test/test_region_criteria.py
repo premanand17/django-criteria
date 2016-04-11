@@ -4,6 +4,12 @@ import os
 import criteria
 from data_pipeline.utils import IniParser
 from criteria.helper.region_criteria import RegionCriteria
+from django.core.management import call_command
+import requests
+from criteria.test.settings_idx import OVERRIDE_SETTINGS
+from django.test.utils import override_settings
+from elastic.utils import ElasticUtils
+from elastic.search import Search
 
 IDX_SUFFIX = ElasticSettings.getattr('TEST')
 MY_INI_FILE = os.path.join(os.path.dirname(__file__), IDX_SUFFIX + '_test_criteria.ini')
@@ -14,8 +20,11 @@ INI_CONFIG = None
 def setUpModule():
     ''' Change ini config (MY_INI_FILE) to use the test suffix when
     creating pipeline indices. '''
+    global INI_CONFIG
     ini_file = os.path.join(os.path.dirname(__file__), 'test_criteria.ini')
+
     if os.path.isfile(MY_INI_FILE):
+        INI_CONFIG = IniParser().read_ini(MY_INI_FILE)
         return
 
     with open(MY_INI_FILE, 'w') as new_file:
@@ -23,13 +32,17 @@ def setUpModule():
             for line in old_file:
                 new_file.write(line.replace('auto_tests', IDX_SUFFIX))
 
-    global INI_CONFIG
     INI_CONFIG = IniParser().read_ini(MY_INI_FILE)
+
+    # create the region index
+    call_command('criteria_index', '--feature', 'region', '--test')
+    Search.index_refresh(INI_CONFIG['DEFAULT']['CRITERIA_IDX_REGION'])
 
 
 def tearDownModule():
     # remove index created
-    # requests.delete(ElasticSettings.url() + '/' + INI_CONFIG['GENE_HISTORY']['index'])
+    global INI_CONFIG
+    requests.delete(ElasticSettings.url() + '/' + INI_CONFIG['DEFAULT']['CRITERIA_IDX_REGION'])
     os.remove(MY_INI_FILE)
 
 
@@ -78,13 +91,13 @@ class RegionCriteriaTest(TestCase):
         config = IniParser().read_ini(MY_INI_FILE)
         criteria_results = RegionCriteria.is_region_for_disease(self.region_region1, config=config, result_container={})
 
-        expected_dict = {'1p36.32_002': {'IBD': [{'fid': '1p36.32_002', 'fname': '1p36.32'}],
-                                         'PSC': [{'fid': '1p36.32_002', 'fname': '1p36.32'}],
-                                         'CEL': [{'fid': '1p36.32_002', 'fname': '1p36.32'}],
-                                         'RA': [{'fid': '1p36.32_002', 'fname': '1p36.32'}],
-                                         'UC': [{'fid': '1p36.32_002', 'fname': '1p36.32'}],
-                                         'ATD': [{'fid': '1p36.32_002', 'fname': '1p36.32'}],
-                                         'MS': [{'fid': '1p36.32_002', 'fname': '1p36.32'}]}}
+        expected_dict = {'1p36.32_002': {'IBD': [{'fid': 'IBD', 'fname': 'IBD'}],
+                                         'PSC': [{'fid': 'PSC', 'fname': 'PSC'}],
+                                         'CEL': [{'fid': 'CEL', 'fname': 'CEL'}],
+                                         'RA': [{'fid': 'RA', 'fname': 'RA'}],
+                                         'UC': [{'fid': 'UC', 'fname': 'UC'}],
+                                         'ATD': [{'fid': 'ATD', 'fname': 'ATD'}],
+                                         'MS': [{'fid': 'MS', 'fname': 'MS'}]}}
 
         self.assertEqual(criteria_results, expected_dict, 'Got result dict for is_region_for_disease as expected')
 
@@ -108,6 +121,37 @@ class RegionCriteriaTest(TestCase):
                                          'PSO': [{'fname': 'PSO', 'fid': 'PSO'}],
                                          'T1D': [{'fname': 'T1D', 'fid': 'T1D'}],
                                          'PBC': [{'fname': 'PBC', 'fid': 'PBC'}],
+                                         'IGE': [{'fid': 'IGE', 'fname': 'IGE'}],
                                          'CEL': [{'fname': 'CEL', 'fid': 'CEL'}]}}
 
         self.assertEqual(criteria_results, expected_dict, 'Got result dict for is_region_in_mhc as expected')
+
+    @override_settings(ELASTIC=OVERRIDE_SETTINGS)
+    def test_get_criteria_details(self):
+        config = IniParser().read_ini(MY_INI_FILE)
+        idx = ElasticSettings.idx('REGION_CRITERIA')
+        available_criterias = RegionCriteria.get_available_criterias(config=config)['region']
+        idx_type = ','.join(available_criterias)
+
+        doc_by_idx_type = ElasticUtils.get_rdm_docs(idx, idx_type, size=1)
+        self.assertTrue(len(doc_by_idx_type) > 0)
+        feature_id = getattr(doc_by_idx_type[0], 'qid')
+
+        criteria_details = RegionCriteria.get_criteria_details(feature_id, config=config)
+
+        hits = criteria_details['hits']
+        first_hit = hits[0]
+        _type = first_hit['_type']
+        _index = first_hit['_index']
+        _id = first_hit['_id']
+        _source = first_hit['_source']
+
+        disease_tag = _source['disease_tags'][0]
+        self.assertTrue(feature_id, _id)
+        self.assertIn(_type, idx_type)
+        self.assertTrue(idx, _index)
+        self.assertIn(disease_tag, list(_source.keys()))
+
+        fdetails = _source[disease_tag][0]
+        self.assertIn('fid', fdetails.keys())
+        self.assertIn('fname', fdetails.keys())

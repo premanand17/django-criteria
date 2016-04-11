@@ -51,7 +51,7 @@ class CriteriaManagerTest(TestCase):
     def test_get_available_diseases(self):
         (main, other) = utils.Disease.get_site_diseases()
         self.assertEqual(12, len(main), "12 main diseases found when searching for all diseases")
-        self.assertEqual(7, len(other), "7 other diseases found when searching for all diseases")
+        self.assertEqual(8, len(other), "8 other diseases found when searching for all diseases")
 
         (main_dis_code, other_dis_code) = CriteriaManager.get_available_diseases()
 

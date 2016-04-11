@@ -5,6 +5,7 @@ import criteria
 from data_pipeline.utils import IniParser
 from criteria.helper.criteria import Criteria
 from criteria.helper.criteria_manager import CriteriaManager
+from criteria.helper.gene_criteria import GeneCriteria
 
 IDX_SUFFIX = ElasticSettings.getattr('TEST')
 MY_INI_FILE = os.path.join(os.path.dirname(__file__), IDX_SUFFIX + '_test_criteria.ini')
@@ -29,8 +30,6 @@ def setUpModule():
 
 
 def tearDownModule():
-    # remove index created
-    # requests.delete(ElasticSettings.url() + '/' + INI_CONFIG['GENE_HISTORY']['index'])
     os.remove(MY_INI_FILE)
 
 
@@ -157,13 +156,45 @@ class CriteriaTest(TestCase):
         self.assertIn('gene', available_criterias)
         self.assertIn('marker', available_criterias)
 
-    def test_get_criteria_details(self):
-        feature_id = 'ENSG00000134242'
-        idx = ElasticSettings.idx('GENE_CRITERIA')
-        idx_type = 'cand_gene_in_study,gene_in_region'
-        criteria_details = Criteria.get_criteria_details(feature_id, idx, idx_type)
+    def test_get_meta_info(self):
+        idx = 'pydgin_imb_criteria_gene'
+        idx_type = 'cand_gene_in_study'
+        meta_info = Criteria.get_meta_info(idx, idx_type)
+        self.assertEqual(meta_info['desc'], 'Candidate Gene for a Study', 'Got the right meta info')
 
-        criterias = criteria_details[feature_id].keys()
-        self.assertIn('cand_gene_in_study', criterias)
-        self.assertIn('gene_in_region', criterias)
-        self.assertNotIn('cand_gene_in_region', criterias)
+    def test_get_meta_desc(self):
+        idx = 'pydgin_imb_criteria_gene'
+        criteria_list = ['cand_gene_in_study', 'is_gene_in_mhc']
+        meta_info = Criteria.get_meta_desc(idx, criteria_list)
+
+        self.assertEqual(meta_info[idx]['is_gene_in_mhc'], 'Gene lies in MHC region',
+                         'Got the right desc for is_gene_in_mhc')
+        self.assertEqual(meta_info[idx]['cand_gene_in_study'], 'Candidate Gene for a Study',
+                         'Got the right desc for cand_gene_in_study')
+
+    def test_get_link_info(self):
+
+        idx = 'pydgin_imb_criteria_gene'
+        criteria_list = ['cand_gene_in_study', 'is_gene_in_mhc', 'cand_gene_in_region']
+        link_info = Criteria.get_link_info(idx, criteria_list)
+
+        self.assertEqual(link_info[idx]['cand_gene_in_study'], 'study',
+                         'Got the right link to feature for cand_gene_in_study')
+        self.assertEqual(link_info[idx]['cand_gene_in_region'], 'region',
+                         'Got the right link to feature for cand_gene_in_region')
+        self.assertEqual(link_info[idx]['is_gene_in_mhc'], 'gene',
+                         'Got the right link to feature for is_gene_in_mhc')
+
+    def test_get_feature_idx_n_idxtypes(self):
+
+        (idx, idx_types) = Criteria.get_feature_idx_n_idxtypes('gene')
+        self.assertEqual('pydgin_imb_criteria_gene', idx, 'Got the right idx back')
+        self.assertIn('cand_gene_in_study', idx_types, 'Got the right idx type back')
+        self.assertIn('cand_gene_in_region', idx_types, 'Got the right idx type back')
+
+        (idx, idx_types) = Criteria.get_feature_idx_n_idxtypes('marker')
+        self.assertEqual('pydgin_imb_criteria_marker', idx, 'Got the right idx back')
+
+        self.assertIn('is_an_index_snp', idx_types, 'Got the right idx type back')
+        self.assertIn('marker_is_gwas_significant_in_study', idx_types, 'Got the right idx type back')
+        self.assertIn('is_marker_in_mhc', idx_types, 'Got the right idx type back')

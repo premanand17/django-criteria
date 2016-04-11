@@ -4,6 +4,7 @@ import os
 from builtins import classmethod
 from disease import utils
 import datetime
+from pydgin_auth.elastic_model_factory import ElasticPermissionModelFactory as elastic_factory
 
 # Get an instance of a logger
 logger = logging.getLogger(__name__)
@@ -14,11 +15,16 @@ class CriteriaManager():
     '''
 
     @classmethod
-    def get_criteria_config(cls):
+    def get_criteria_config(cls, ini_file='criteria.ini'):
         '''function to build the criteria config
         '''
         BASE_DIR = os.path.dirname(os.path.dirname(__file__))
-        ini_file = os.path.join(BASE_DIR, 'criteria.ini')
+
+        if 'test' in ini_file:
+            ini_file = os.path.join(BASE_DIR, 'test', ini_file)
+        else:
+            ini_file = os.path.join(BASE_DIR, ini_file)
+
         config = None
         if os.path.isfile(ini_file):
             config = IniParser.read_ini(cls, ini_file=ini_file)
@@ -39,7 +45,7 @@ class CriteriaManager():
             return (main_codes, other_codes)
 
     @classmethod
-    def process_criterias(cls, feature, criteria=None, config=None, show=False):
+    def process_criterias(cls, feature, criteria=None, config=None, show=False, test=False):
         '''function to delegate the call to the right criteria class and build the criteria for that class
         '''
         from criteria.helper.criteria import Criteria
@@ -49,9 +55,12 @@ class CriteriaManager():
         from criteria.helper.study_criteria import StudyCriteria
 
         if config is None:
-            config = cls.get_criteria_config()
+            if test:
+                config = cls.get_criteria_config(ini_file='test_criteria.ini')
+            else:
+                config = cls.get_criteria_config(ini_file='criteria.ini')
 
-        available_criterias = Criteria.get_available_criterias(feature)[feature]
+        available_criterias = Criteria.get_available_criterias(feature, config=config, test=test)[feature]
 
         criterias_to_process = []
         if criteria is None:
@@ -62,7 +71,6 @@ class CriteriaManager():
                                     if criteria.strip() in available_criterias]
 
         if show:
-            logger.debug(criterias_to_process)
             print(criterias_to_process)
             return criterias_to_process
 
@@ -70,16 +78,16 @@ class CriteriaManager():
         for section in criterias_to_process:
             if feature == 'gene':
                 print('Call to build criteria gene index')
-                Criteria.process_criteria(feature, section, config, GeneCriteria)
+                Criteria.process_criteria(feature, section, config, GeneCriteria, test=test)
             elif feature == 'marker':
                 print('Call to build criteria marker index')
-                Criteria.process_criteria(feature, section, config, MarkerCriteria)
+                Criteria.process_criteria(feature, section, config, MarkerCriteria, test=test)
             elif feature == 'region':
                 print('Call to build criteria region index')
-                Criteria.process_criteria(feature, section, config, RegionCriteria)
+                Criteria.process_criteria(feature, section, config, RegionCriteria, test=test)
             elif feature == 'study':
                 print('Call to build criteria study index')
-                Criteria.process_criteria(feature, section, config, StudyCriteria)
+                Criteria.process_criteria(feature, section, config, StudyCriteria, test=test)
             else:
                 logger.critical('Unsupported feature ... please check the inputs')
 

@@ -20,9 +20,14 @@ class Criteria():
 
     (main_codes, other_codes) = CriteriaManager.get_available_diseases()
     site_enabled_diseases = main_codes + other_codes
+    test_mode = False
+    gl_result_container = None
+
+    global hit_counter
+    hit_counter = 0
 
     @classmethod
-    def process_criteria(cls, feature, section, config, sub_class):
+    def process_criteria(cls, feature, section, config, sub_class, test=False):
         ''' Top level function that calls the right criteria implementation based on the subclass passed. Iterates over all the
             documents using the ScanAndScroll and the hits are processed by the inner function process_hits.
             The entire result is stored in result_container (a dict), and at the end of the processing, the result is
@@ -36,13 +41,28 @@ class Criteria():
         @type  sub_class: string
         @param sub_class: The name of the inherited sub_class where the actual implementation is
         '''
-
+        global gl_result_container
+        gl_result_container = {}
+        test_mode = test
         if config is None:
-            config = CriteriaManager().get_criteria_config()
+            if test_mode:
+                config = CriteriaManager().get_criteria_config(ini_file='test_criteria.ini')
+            else:
+                config = CriteriaManager().get_criteria_config(ini_file='criteria.ini')
 
         section_config = config[section]
-        source_idx = ElasticSettings.idx(section_config['source_idx'])
-        source_idx_type = section_config['source_idx_type']
+        source_idx = section_config['source_idx']
+
+        if ',' in source_idx:
+            idxs = source_idx.split(',')
+            idx_all = [ElasticSettings.idx(idx) for idx in idxs]
+            source_idx = ','.join(idx_all)
+        else:
+            source_idx = ElasticSettings.idx(section_config['source_idx'])
+
+        source_idx_type = None
+        if 'source_idx_type' in section_config:
+            source_idx_type = section_config['source_idx_type']
 
         if source_idx_type is not None:
             source_idx = ElasticSettings.idx(section_config['source_idx'], idx_type=section_config['source_idx_type'])
@@ -51,19 +71,53 @@ class Criteria():
 
         logger.warning(source_idx + ' ' + source_idx_type)
 
-        global gl_result_container
-        gl_result_container = {}
-
         def process_hits(resp_json):
-            hits = resp_json['hits']['hits']
             global gl_result_container
+            hits = resp_json['hits']['hits']
+            global hit_counter
             for hit in hits:
+                # print('======HIT COUNTER====' + str(hit_counter))
+                hit_counter = hit_counter + 1
+
                 result_container = sub_class.tag_feature_to_disease(hit, section, config,
                                                                     result_container=gl_result_container)
                 gl_result_container = result_container
 
+                if test_mode:
+                    if gl_result_container is not None and len(gl_result_container) > 5:
+                        return
+
         query = cls.get_elastic_query(section, config)
-        ScanAndScroll.scan_and_scroll(source_idx, call_fun=process_hits, query=query)
+
+        if test_mode:
+            result_size = len(gl_result_container)
+            from_ = 0
+            size_ = 20
+            while (result_size < 1):
+                from_ = from_ + size_
+                url = ElasticSettings.url()
+                if 'mhc' in section:
+                    url_search = (source_idx + '/_search')
+                else:
+                    url_search = (source_idx + '/_search?from=' + str(from_) + '&size=' + str(size_))
+
+                if query is None:
+                    query = {
+                              "query": {"match_all": {}},
+                              "size":  20
+                              }
+                    response = Search.elastic_request(url, url_search, data=json.dumps(query))
+                    query = None
+                else:
+                    # print(query)
+                    response = Search.elastic_request(url, url_search, data=json.dumps(query.query))
+
+                process_hits(response.json())
+                if gl_result_container is not None:
+                    result_size = len(gl_result_container)
+        else:
+            ScanAndScroll.scan_and_scroll(source_idx, call_fun=process_hits, query=query)
+
         cls.map_and_load(feature, section, config, gl_result_container)
 
     @classmethod
@@ -78,25 +132,25 @@ class Criteria():
         section_config = config[section]
         source_fields = []
 
+        if 'source_fields' in section_config:
+            source_fields_str = section_config['source_fields']
+            source_fields = source_fields_str.split(',')
+
         if 'mhc' in section:
             seqid = '6'
             start_range = 25000000
             end_range = 35000000
-            field_list = section_config['source_fields']
+
             seqid_param = section_config['seqid_param']
             start_param = section_config['start_param']
             end_param = section_config['end_param']
-
-        if 'source_fields' in section_config:
-            source_fields_str = section_config['source_fields']
-            source_fields = source_fields_str.split(',')
 
         if section == 'is_gene_in_mhc':
             # for region you should make a different query
             # Defined MHC region as chr6:25,000,000..35,000,000
 
             query = ElasticUtils.range_overlap_query(seqid, start_range, end_range,
-                                                     field_list,
+                                                     source_fields,
                                                      seqid_param,
                                                      start_param,
                                                      end_param)
@@ -108,8 +162,16 @@ class Criteria():
             query = ElasticQuery.filtered_bool(Query.match_all(), query_bool, sources=["id", "seqid", "start"])
         elif section == 'is_region_in_mhc':
             query = ElasticQuery(Query.term("region_name", "MHC"))
+        elif section == 'marker_is_gwas_significant_in_ic':
+            # build a range query
+            gw_sig_p = 0.00000005
+            query = ElasticQuery(RangeQuery("p_value", lte=gw_sig_p))
         else:
-            query = ElasticQuery(Query.match_all(), sources=source_fields)
+            if len(source_fields) > 0:
+                query = ElasticQuery(Query.match_all(), sources=source_fields)
+            else:
+                # query = ElasticQuery(Query.match_all())
+                return None
 
         return query
 
@@ -174,7 +236,7 @@ class Criteria():
 
         cls.create_criteria_mapping(criteria_idx, criteria_idx_type)
         cls.load_result_container(result_container, criteria_idx, criteria_idx_type)
-        print(criteria_idx + ' ' + criteria_idx_type + ' loaded successfully. DONE')
+        logger.warning(criteria_idx + ' ' + criteria_idx_type + ' loaded successfully. DONE')
 
     @classmethod
     def get_criteria_dict(cls, fid, fname, fnotes={}):
@@ -227,8 +289,8 @@ class Criteria():
         @type  test_mode:  string
         @param test_mode: flag to create or not create the mapping
         '''
-        print('Idx ' + idx)
-        print('Idx_type ' + idx_type)
+        logger.warning('Idx ' + idx)
+        logger.warning('Idx_type ' + idx_type)
         ''' Create the mapping for alias indexing '''
         props = MappingProperties(idx_type)
         props.add_property("score", "integer")
@@ -247,14 +309,19 @@ class Criteria():
             fnotes.add_property('linkdata', "string", index="not_analyzed")
             fnotes.add_property('linkvalue', "string", index="not_analyzed")
             criteria_tags.add_properties(fnotes)
-
             props.add_properties(criteria_tags)
 
         ''' create index and add mapping '''
         load = Loader()
         options = {"indexName": idx, "shards": 5}
+
+        '''add meta info'''
+        config = CriteriaManager.get_criteria_config()
+        idx_type_cfg = config[idx_type]
+        desc = idx_type_cfg['desc']
+        meta = {"desc": desc}
         if not test_mode:
-            load.mapping(props, idx_type, analyzer=Loader.KEYWORD_ANALYZER, **options)
+            load.mapping(props, idx_type, meta=meta, analyzer=Loader.KEYWORD_ANALYZER, **options)
         return props
 
     @classmethod
@@ -348,6 +415,7 @@ class Criteria():
         '''
         json_data = ''
         line_num = 0
+
         for feature_id in result_container:
 
             if feature_id is None:
@@ -429,7 +497,7 @@ class Criteria():
         return result_container_
 
     @classmethod
-    def get_available_criterias(cls, feature=None, config=None):
+    def get_available_criterias(cls, feature=None, config=None, test=False):
         ''' function to get avalable criterias for a given feature
         @type  feature: string
         @param feature: feature type, could be 'gene','region', 'marker' etc.,
@@ -437,7 +505,10 @@ class Criteria():
         @keyword config: The config object initialized from criteria.ini.
         '''
         if config is None:
-            config = CriteriaManager.get_criteria_config()
+            if test:
+                config = CriteriaManager.get_criteria_config(ini_file='test_criteria.ini')
+            else:
+                config = CriteriaManager.get_criteria_config(ini_file='criteria.ini')
 
         criteria_dict = dict()
         criteria_list = []
@@ -472,7 +543,12 @@ class Criteria():
         query = ElasticQuery(Query.term("qid", feature_id))
         agg = Agg("criteria_disease_tags", "terms", {"field": "disease_tags", "size": 0})
         aggs = Aggs(agg)
-        search = Search(query, aggs=aggs, idx=idx)
+
+        if idx_type:
+            search = Search(query, aggs=aggs, idx=idx, idx_type=idx_type)
+        else:
+            search = Search(query, aggs=aggs, idx=idx)
+
         disease_tags = []
         try:
             r_aggs = search.search().aggs
@@ -482,9 +558,12 @@ class Criteria():
             return []
 
         # get disease docs
-        query = ElasticQuery(Query.ids(disease_tags))
-        elastic = Search(query, idx=ElasticSettings.idx('DISEASE'), size=len(disease_tags))
-        return elastic.search().docs
+        if (len(disease_tags) > 0):
+            query = ElasticQuery(Query.ids(disease_tags))
+            elastic = Search(query, idx=ElasticSettings.idx('DISEASE'), size=len(disease_tags), search_from=0)
+            return elastic.search().docs
+        else:
+            return None
 
     @classmethod
     def get_criteria_details(cls, feature_id, idx, idx_type, criteria_id=None):
@@ -501,22 +580,138 @@ class Criteria():
         '''
         query = ElasticQuery(Query.term("qid", feature_id))
         search = Search(query, idx=idx, idx_type=idx_type)
-        elastic_docs = search.search().docs
-        result_dict = dict()
-        for doc in elastic_docs:
+#        elastic_docs = search.search().docs
+        criteria_hits = search.get_json_response()['hits']
+        return(criteria_hits)
 
-            meta = getattr(doc, '_meta')
-            criteria_type = meta['_type']
+    @classmethod
+    def get_all_criteria_disease_tags(cls, qids, idx, idx_type):
 
-            if criteria_id is not None and criteria_type != criteria_id:
-                continue
+        query = ElasticQuery(Query.terms("qid", qids), sources=['disease_tags', 'qid'])
 
-            if feature_id not in result_dict:
-                result_dict[feature_id] = {}
+        search = Search(query, idx=idx, idx_type=idx_type)
+        criteria_hits = search.get_json_response()['hits']
+        hits = criteria_hits['hits']
 
-            if criteria_type not in result_dict[feature_id]:
-                result_dict[feature_id][criteria_type] = {}
+        meta_info = {}
 
-            result_dict[feature_id][criteria_type] = doc
+        criteria_disease_tags = {}
+        for hit in hits:
+            if idx == hit['_index']:
+                qid = hit['_source']['qid']
+                meta_desc = cls.get_meta_desc(idx, [hit['_type']])
+                meta_info[hit['_type']] = meta_desc[idx][hit['_type']]
 
-        return(result_dict)
+                criteria_desc = hit['_type']
+
+                if qid not in criteria_disease_tags:
+                    criteria_disease_tags[qid] = {}
+                criteria_disease_tags[qid][criteria_desc] = hit['_source']['disease_tags']
+
+        for fid in criteria_disease_tags:
+            disease_tags_all = cls.get_all_criteria_disease_tags_aggregated(qid, criteria_disease_tags[qid])
+            criteria_disease_tags[fid]['all'] = disease_tags_all
+
+        criteria_disease_tags[fid]['meta_info'] = meta_info
+
+        return(criteria_disease_tags)
+
+    @classmethod
+    def get_all_criteria_disease_tags_aggregated(cls, qid, criteria_disease_tags):
+
+        disease_tags_all = []
+        for ftype in criteria_disease_tags:
+            disease_tags = criteria_disease_tags[ftype]
+            disease_tags_all.extend(disease_tags)
+
+        uniq_list = set(disease_tags_all)
+        return list(uniq_list)
+
+    @classmethod
+    def get_meta_info(cls, idx, idx_type):
+        elastic_url = ElasticSettings.url()
+        meta_url = idx + '/' + idx_type + '/_mapping'
+        # print(elastic_url + meta_url)
+        meta_response = Search.elastic_request(elastic_url, meta_url, is_post=False)
+
+        try:
+            elastic_meta = json.loads(meta_response.content.decode("utf-8"))
+            meta_info = elastic_meta[idx]['mappings'][idx_type]['_meta']
+            return meta_info
+        except:
+            return None
+
+    @classmethod
+    def get_meta_desc(cls, idx, criteria_list):
+        meta_desc = {}
+        for criteria in criteria_list:
+            meta_info = cls.get_meta_info(idx, criteria)
+            if meta_info is not None:
+                desc = meta_info['desc']
+
+                if idx not in meta_desc:
+                    meta_desc[idx] = {}
+
+                meta_desc[idx][criteria] = desc
+
+        return meta_desc
+
+    @classmethod
+    def get_link_info(cls, idx, criteria_list):
+
+        link_info = {}
+
+        criteria_config = CriteriaManager.get_criteria_config()
+        for criteria in criteria_list:
+            criteria_section = criteria_config[criteria]
+
+            if idx not in link_info:
+                    link_info[idx] = {}
+
+            if 'link_to_feature' in criteria_section:
+                link_to_feature = criteria_section['link_to_feature']
+                link_info[idx][criteria] = link_to_feature
+
+        return link_info
+
+    @classmethod
+    def get_disease_codes_from_results(cls, idx, criteria_results):
+
+        hits = criteria_results['hits']
+        disease_codes = []
+        for hit in hits:
+            if 'disease_tags' in hit['_source']:
+                dis_tag = hit['_source']['disease_tags']
+                disease_codes.extend(dis_tag)
+
+        uniq_list = set(disease_codes)
+        return list(uniq_list)
+
+    @classmethod
+    def add_meta_info(cls, idx, criteria_list, result_dict):
+
+        meta_desc = Criteria.get_meta_desc(idx, criteria_list)
+        if len(meta_desc) > 0:
+            result_dict['meta_info'] = meta_desc
+
+        # get the link_info and attach to the result_dict
+        link_info = Criteria.get_link_info(idx, criteria_list)
+        if len(link_info) > 0:
+            result_dict['link_info'] = link_info
+
+        agg_disease_tags = Criteria.get_disease_codes_from_results(idx, result_dict)
+        if len(agg_disease_tags) > 0:
+            result_dict['agg_disease_tags'] = agg_disease_tags
+
+        return result_dict
+
+    @classmethod
+    def get_feature_idx_n_idxtypes(cls, feature_type):
+
+        idx = ElasticSettings.idx(feature_type.upper()+'_CRITERIA')
+
+        available_criterias = cls.get_available_criterias(feature=feature_type)
+        criteria_list = available_criterias[feature_type]
+        idx_type = ','.join(criteria_list)
+
+        return (idx, idx_type)
