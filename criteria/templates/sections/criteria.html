@@ -1,0 +1,57 @@
+{% extends "section.html" %}
+
+{% block section_js %}
+<script language="javascript" type="text/javascript">
+$(document).ready(function() {
+	criteria.get_criteria_details("{{ feature_id }}", "{{appname}}");
+	
+	$("button[id*='criteria-details-button-']").click(function(){
+	console.log('button clicked==');
+    $(this).text(function(i,old){
+        return old=='SHOW' ?  'HIDE' : 'SHOW';
+    });
+	});
+	
+} );
+
+
+</script>
+{% endblock %}
+
+
+{% block section %}
+{% load filter_tags %}
+{% load pydgin_tags %}
+{% load disease_tags %}	
+
+<div class="row" style="border-bottom: 1px solid #dfd7ca; padding:5px;" >
+  <div class="col-md-3" style="font-weight:bold;">Criteria Name</div>
+  <div class="col-md-1" style="font-weight:bold;">Details</div>
+  <div class="col-md-8" style="font-weight:bold;">Disease Tags</div>
+</div>
+
+ {% for cur_feature_id, values in criteria.items %}
+
+	     {% with meta_dict=values.meta_info %}
+          {% for cur_criteria, disease_code in values.items %}
+       
+            {% if cur_criteria != 'all' and cur_criteria != 'meta_info' %}
+          
+             {% with cur_criteria_key=meta_dict|dict_lookup:cur_criteria %}
+ 
+            <div class="row" id="criteria_row_{{ cur_criteria }}" style="padding:5px;">
+      		<div class="col-md-3">{{ cur_criteria_key }}</div>
+      		<div class="col-md-1" id="{{ cur_criteria }}"></div>
+      		<div class="col-md-8">{% show_disease_bar disease_code expand_od=True %}</div>
+      		</div>
+      		
+      		 {% endwith %}
+      		 {% endif %}
+          {% endfor %}
+          	
+          	
+          {% endwith %}
+        
+	{% endfor %}
+
+{% endblock %}

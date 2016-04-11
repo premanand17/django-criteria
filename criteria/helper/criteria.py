@@ -588,22 +588,31 @@ class Criteria():
     def get_all_criteria_disease_tags(cls, qids, idx, idx_type):
 
         query = ElasticQuery(Query.terms("qid", qids), sources=['disease_tags', 'qid'])
+
         search = Search(query, idx=idx, idx_type=idx_type)
         criteria_hits = search.get_json_response()['hits']
         hits = criteria_hits['hits']
+
+        meta_info = {}
 
         criteria_disease_tags = {}
         for hit in hits:
             if idx == hit['_index']:
                 qid = hit['_source']['qid']
+                meta_desc = cls.get_meta_desc(idx, [hit['_type']])
+                meta_info[hit['_type']] = meta_desc[idx][hit['_type']]
+
+                criteria_desc = hit['_type']
 
                 if qid not in criteria_disease_tags:
                     criteria_disease_tags[qid] = {}
-                criteria_disease_tags[qid][hit['_type']] = hit['_source']['disease_tags']
+                criteria_disease_tags[qid][criteria_desc] = hit['_source']['disease_tags']
 
         for fid in criteria_disease_tags:
             disease_tags_all = cls.get_all_criteria_disease_tags_aggregated(qid, criteria_disease_tags[qid])
             criteria_disease_tags[fid]['all'] = disease_tags_all
+
+        criteria_disease_tags[fid]['meta_info'] = meta_info
 
         return(criteria_disease_tags)
 
