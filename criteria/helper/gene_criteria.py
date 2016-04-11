@@ -251,5 +251,5 @@ class GeneCriteria(Criteria):
 
         result_dict = Criteria.get_criteria_details(feature_id, idx, idx_type)
         result_dict_expanded = Criteria.add_meta_info(idx, criteria_list, result_dict)
-
+        print(result_dict_expanded)
         return result_dict_expanded

@@ -96,3 +96,14 @@ class StudyCriteria(Criteria):
         result_dict_expanded = Criteria.add_meta_info(idx, criteria_list, result_dict)
 
         return result_dict_expanded
+
+    @classmethod
+    def get_all_criteria_disease_tags(cls, qids, idx_type=None):
+
+        (idx, idx_types) = cls.get_feature_idx_n_idxtypes(cls.FEATURE_TYPE)
+
+        if idx_type is None:
+            idx_type = idx_types
+
+        criteria_disease_tags = Criteria.get_all_criteria_disease_tags(qids, idx, idx_type)
+        return(criteria_disease_tags)
