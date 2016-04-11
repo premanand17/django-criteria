@@ -612,7 +612,7 @@ class Criteria():
             disease_tags_all = cls.get_all_criteria_disease_tags_aggregated(qid, criteria_disease_tags[qid])
             criteria_disease_tags[fid]['all'] = disease_tags_all
 
-        criteria_disease_tags[fid]['meta_info'] = meta_info
+            criteria_disease_tags[fid]['meta_info'] = meta_info
 
         return(criteria_disease_tags)
 
