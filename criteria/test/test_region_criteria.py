@@ -121,6 +121,7 @@ class RegionCriteriaTest(TestCase):
                                          'PSO': [{'fname': 'PSO', 'fid': 'PSO'}],
                                          'T1D': [{'fname': 'T1D', 'fid': 'T1D'}],
                                          'PBC': [{'fname': 'PBC', 'fid': 'PBC'}],
+                                         'IGE': [{'fid': 'IGE', 'fname': 'IGE'}],
                                          'CEL': [{'fname': 'CEL', 'fid': 'CEL'}]}}
 
         self.assertEqual(criteria_results, expected_dict, 'Got result dict for is_region_in_mhc as expected')
