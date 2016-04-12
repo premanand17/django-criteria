@@ -5,12 +5,32 @@
 $(document).ready(function() {
 	criteria.get_criteria_details("{{ feature_id }}", "{{appname}}");
 	
-	$("button[id*='criteria-details-button-']").click(function(){
-	console.log('button clicked==');
-    $(this).text(function(i,old){
-        return old=='SHOW' ?  'HIDE' : 'SHOW';
-    });
-	});
+	//for criteria help popup 	
+ 	$("i[id^='criteria_row_help_']").mouseenter(function() {
+			        var e=$(this);
+			        e.off('hover');
+			        
+			        this_id = $(this).attr('id');
+			        criteria_id = this_id.replace(/criteria_row_help_/, '');
+		        
+			        $.get(e.data('poload'),function(response) {
+			        	criteria_title= $(response).find("#"+criteria_id + " td:nth-child(1)").html();
+		        		criteria_info = $(response).find("#"+criteria_id + " td:nth-child(2)").html();
+			        	
+			        	e.popover({
+                        title: criteria_title,
+                        content: criteria_info,
+                        html: true,
+                        template:'<div class="popover popover-wide" role="tooltip">'
+                        +'<div class="arrow"></div><h3 class="popover-title"></h3>'
+                        +'<div class="popover-content"></div></div>'}).popover('show');
+			        	
+			        	
+			        });
+	   }).mouseleave(function() {
+                 $(this).popover('hide');
+		});
+
 	
 } );
 
@@ -40,7 +60,7 @@ $(document).ready(function() {
              {% with cur_criteria_key=meta_dict|dict_lookup:cur_criteria %}
  
             <div class="row" id="criteria_row_{{ cur_criteria }}" style="padding:5px;">
-      		<div class="col-md-3">{{ cur_criteria_key }}</div>
+      		<div class="col-md-3">{{ cur_criteria_key }}&nbsp;<i class="fa fa-question-circle" aria-hidden="true" data-toggle="popover" data-trigger="manual" id="criteria_row_help_{{ cur_criteria }}" data-poload="/faq"></i></div>
       		<div class="col-md-1" id="{{ cur_criteria }}"></div>
       		<div class="col-md-8">{% show_disease_bar disease_code expand_od=True %}</div>
       		</div>

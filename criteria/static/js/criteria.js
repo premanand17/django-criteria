@@ -1,3 +1,14 @@
+/**
+ * Script to populate the criteria details sections in all feature pages.
+ * 
+ * The url app_name/criteria takes to the criteria_details function implemented in all the
+ * feature views, which returns the criteria details in json format.
+ * 
+ * The basic table is build by criteria.html with the information available in the context.
+ * The details section (which expands on clicking the 'DETAIL' button), get the information from this ajax call.
+ *  
+ */
+
 (function( criteria, $, undefined ) {
 	
 	// get criteria details for criteria section
@@ -16,6 +27,7 @@
 			success: function(hits, textStatus, jqXHR) {
 			
 				feature_id_ori = feature_id
+				//Region id constains '.' which might break, so replace dots with underscore
 				feature_id = feature_id.replace(/\./g, '_');
 										
 				pydgin_utils.add_spinner_before('table-criteria-'+feature_id, "criteria-spinner-"+feature_id);
@@ -26,8 +38,17 @@
 					$('#criteria-'+feature_id).replaceWith(row);
 				}
 
-				var detail_row = "";
+				/* 
+				 * We get the criteria description from the meta_info
+				 * We get the info about which object to link to from link_info
+				 * 
+				 * If there is only one feature to know in the Details column, we show it as it is.
+				 * If there is more than one, then we display a 'DETAILS' button, which upon clicking
+				 * displays a details table.	
+				 * 
+				 */
 				
+				var detail_row = "";
 				for(var i=0; i<hits.hits.length; i++) {
 					var idx =  hits.hits[i]['_index'];
 					var type = hits.hits[i]['_type'];
@@ -41,8 +62,6 @@
 					
         			var hit = hits.hits[i]._source;
 					var disease_tags = hit.disease_tags.sort()
-			
-				
 					
 					var features_list = {}
 					
@@ -77,7 +96,7 @@
 						for (var firstKey in features_list) break;
 						$('div[id="'+lc_desc_+'"]').append(firstKey)
 					}else{
-						console.log(lc_desc_)
+						
 						var show_button = '<button class="btn btn-sm btn-default" id="criteria_details_button_'+ lc_desc_ +'" data-toggle="collapse" data-target="#criteria_details_'+lc_desc_ +'">DETAILS</button>'
 						$('div[id="'+lc_desc_+'"]').append(show_button)
 						    detail_row = "";
@@ -110,18 +129,17 @@
 						detail_row2 += detail_row;
 						detail_row2 += '</div>';
 						$('div[id="criteria_row_'+ lc_desc_+'"]' ).after(detail_row2);
-					
-
 					}
-					
-        								
+    								
 				}
 	
 				$("#criteria-spinner-"+feature_id).remove();
-	
-				
-			}
+     		}
 		});
+	}//end for get criteria details 
+	
+	criteria.get_criteria_help = function(criteria_id, app_name) {
+	
 	}
 	
 }( window.criteria = window.criteria || {}, jQuery ));
