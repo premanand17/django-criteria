@@ -26,13 +26,14 @@
 		    },
 			success: function(hits, textStatus, jqXHR) {
 			
-				feature_id_ori = feature_id
+				feature_id_ori = feature_id;
 				//Region id constains '.' which might break, so replace dots with underscore
 				feature_id = feature_id.replace(/\./g, '_');
 										
 				pydgin_utils.add_spinner_before('table-criteria-'+feature_id, "criteria-spinner-"+feature_id);
 				
 				
+						
 				if(hits.hits.length == 0){
 					row = "<p style='padding:10px'>No results found</p>"
 					$('#criteria-'+feature_id).replaceWith(row);
@@ -61,12 +62,12 @@
 					link_id_type = link_info[idx][type];
 					
         			var hit = hits.hits[i]._source;
-					var disease_tags = hit.disease_tags.sort()
+					var disease_tags = hit.disease_tags.sort();
 					
 					var features_list = {}
 					
 					$.each(disease_tags, function( index, dis_code ) {
-						notes_list = hits.hits[i]['_source'][dis_code]
+						notes_list = hits.hits[i]['_source'][dis_code];
 						
 						$.each(notes_list, function( index, notes_dict ) {
 							var current_row = "";
@@ -79,7 +80,7 @@
 								cur_dis_list.push(dis_code);
 								features_list[current_row] = cur_dis_list;
 							}else{
-								var dis_list = []
+								var dis_list = [];
 								dis_list.push(dis_code);
 								features_list[current_row] = dis_list;
 							}
@@ -91,6 +92,8 @@
 					
 					var lc_desc = type.toLowerCase();
 					var lc_desc_ = lc_desc.replace(/\s+/g,"_");
+					
+					criteria.get_criteria_help("#criteria_row_help_" + lc_desc_);
 			
 					if(Object.keys(features_list).length == 1){
 						for (var firstKey in features_list) break;
@@ -123,8 +126,6 @@
 					
 												
 						detail_row2 = "";
-						
-						//detail_row2 += "<div id='criteria_details_"+ lc_desc_  +"'  class='collapse col-md-9 col-md-offset-3' style='background-color:#f8f5f0' >";
 						detail_row2 += "<div id='criteria_details_"+ lc_desc_  +"'  class='collapse col-md-9 col-md-offset-3' >";
 						detail_row2 += detail_row;
 						detail_row2 += '</div>';
@@ -132,15 +133,50 @@
 					}
     								
 				}
-	
+				
 				$("#criteria-spinner-"+feature_id).remove();
      		}
 		});
-	}//end for get criteria details 
+	}//end of get criteria details 
 	
-	criteria.get_criteria_help = function(criteria_id, app_name) {
-	
-	}
+	//Function to populate the popups...Content is fetched from faq page for each criteria
+	criteria.get_criteria_help = function(selector) {
+		$(selector).on('mouseenter', function() {
+			var e = $(this);
+			if(e.data('bs.popover')) {  // check if content already retrieved
+                $(e).popover('show');
+            } else {
+				        var e=$(this);
+				        
+				        this_id = $(this).attr('id');
+				        criteria_id = this_id.replace(/criteria_row_help_/, '');
+			        
+				        $.get(e.data('poload'),function(response) {
+				        	criteria_title= $(response).find("#"+criteria_id + " td:nth-child(1)").html();
+			        		criteria_info = $(response).find("#"+criteria_id + " td:nth-child(2)").html();
+			        		criteria_title = '<span style="white-space: nowrap">' + criteria_title + '</span>';	      			        	
+				        	e.popover({
+	                        title: criteria_title,
+	                        content: criteria_info,
+	                        html: true,
+	                        template:'<div class="popover popover-wide" role="tooltip">'
+	                        +'<div class="arrow"></div><h3 class="popover-title"></h3>'
+	                        +'<div class="popover-content"></div></div>'}).popover('show');
+	                        
+	                         $(e).on("mouseleave", function () {
+	                            $(e).popover('hide');
+	                        });
+	                        
+				        });
+            }
+		   }).mouseleave(function() {
+	                 $(this).popover('hide');
+			});
+
+	}//end of get criteria help
+		
+		
+		
 	
 }( window.criteria = window.criteria || {}, jQuery ));
 

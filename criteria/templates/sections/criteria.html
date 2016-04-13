@@ -4,34 +4,6 @@
 <script language="javascript" type="text/javascript">
 $(document).ready(function() {
 	criteria.get_criteria_details("{{ feature_id }}", "{{appname}}");
-	
-	//for criteria help popup 	
- 	$("i[id^='criteria_row_help_']").mouseenter(function() {
-			        var e=$(this);
-			        e.off('hover');
-			        
-			        this_id = $(this).attr('id');
-			        criteria_id = this_id.replace(/criteria_row_help_/, '');
-		        
-			        $.get(e.data('poload'),function(response) {
-			        	criteria_title= $(response).find("#"+criteria_id + " td:nth-child(1)").html();
-		        		criteria_info = $(response).find("#"+criteria_id + " td:nth-child(2)").html();
-			        	
-			        	e.popover({
-                        title: criteria_title,
-                        content: criteria_info,
-                        html: true,
-                        template:'<div class="popover popover-wide" role="tooltip">'
-                        +'<div class="arrow"></div><h3 class="popover-title"></h3>'
-                        +'<div class="popover-content"></div></div>'}).popover('show');
-			        	
-			        	
-			        });
-	   }).mouseleave(function() {
-                 $(this).popover('hide');
-		});
-
-	
 } );
 
 
