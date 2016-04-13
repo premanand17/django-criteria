@@ -110,7 +110,6 @@
 		});
 	} //end of get criteria details
 	
-	
 	//Function to populate the popups...Content is fetched from faq page for each criteria
 	criteria.get_criteria_help = function(selector) {
 		$(selector).on('mouseenter', function() {
@@ -119,21 +118,20 @@
                 $(e).popover('show');
             } else {
 				        var e=$(this);
-				        
 				        this_id = $(this).attr('id');
 				        criteria_id = this_id.replace(/criteria_row_help_/, '');
 			        
 				        $.get(e.data('poload'),function(response) {
-				        	criteria_title= $(response).find("#"+criteria_id + " td:nth-child(1)").html();
-			        		criteria_info = $(response).find("#"+criteria_id + " td:nth-child(2)").html();
-			        		criteria_title = '<span style="white-space: nowrap">' + criteria_title + '</span>';	      			        	
+				        		criteria_title= $(response).find("#"+criteria_id + " td:nth-child(1)").html();
+				        		criteria_info = $(response).find("#"+criteria_id + " td:nth-child(2)").html();
+				        		criteria_title = '<span style="white-space: nowrap">' + criteria_title + '</span>';	      			        	
 				        	e.popover({
-	                        title: criteria_title,
-	                        content: criteria_info,
-	                        html: true,
-	                        template:'<div class="popover popover-wide" role="tooltip">'
-	                        +'<div class="arrow"></div><h3 class="popover-title"></h3>'
-	                        +'<div class="popover-content"></div></div>'}).popover('show');
+				        		title: criteria_title,
+				        		content: criteria_info,
+				        		html: true,
+				        		template:'<div class="popover popover-wide" role="tooltip">'
+				        			+'<div class="arrow"></div><h3 class="popover-title"></h3>'
+				        			+'<div class="popover-content"></div></div>'}).popover('show');
 	                        
 	                         $(e).on("mouseleave", function () {
 	                            $(e).popover('hide');
@@ -146,7 +144,5 @@
 			});
 
 	}//end of get criteria help
-	
-	
 	
 }( window.criteria = window.criteria || {}, jQuery ));
