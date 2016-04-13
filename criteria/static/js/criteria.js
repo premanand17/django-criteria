@@ -49,12 +49,23 @@
 					
 					$.each(disease_tags, function( index, dis_code ) {
 						notes_list = hits.hits[i]['_source'][dis_code];
-
+						
 						$.each(notes_list, function( index, notes_dict ) {
-							var current_row = "";
+ 							var current_row = "";
 							current_row += '<a href="/' + link_id_type +'/' + notes_dict['fid'] + '/">';
 							current_row += notes_dict['fname'] ;
 							current_row += '</a>';
+							
+							if('fnotes' in notes_dict){
+								fnotes = notes_dict['fnotes'];
+								link_data = fnotes['linkdata'];
+								link_value = fnotes['linkvalue'];
+								if(link_data && link_value){
+									current_row += ' <strong>('+link_data+':'+link_value + ')</strong>';
+								}
+
+							}
+							
 							if(current_row in features_list){
 								cur_dis_list = features_list[current_row];
 								cur_dis_list.push(dis_code);
@@ -80,10 +91,10 @@
 						var show_button = '<button class="btn btn-sm btn-default" id="criteria_details_button_'+ lc_desc_ +'" data-toggle="collapse" data-target="#criteria_details_'+lc_desc_ +'">DETAILS</button>'
 						$('div[id="'+lc_desc_+'"]').append(show_button)
 						    detail_row = "";
-							detail_row += '<table  class="table-striped table-bordered" >';  
+							detail_row += '<table  class="table-striped table-bordered" style="margin:5px">';  
 							detail_row += "<tr>";
 						$.each( features_list, function( feature, dis_codes ) {
-							detail_row += "<td width='150px'>";
+							detail_row += "<td>";
 							detail_row += feature;
 							detail_row += "</td>";
 
