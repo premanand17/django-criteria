@@ -4,14 +4,6 @@
 <script language="javascript" type="text/javascript">
 $(document).ready(function() {
 	criteria.get_criteria_details("{{ feature_id }}", "{{appname}}");
-	
-	$("button[id*='criteria-details-button-']").click(function(){
-	console.log('button clicked==');
-    $(this).text(function(i,old){
-        return old=='SHOW' ?  'HIDE' : 'SHOW';
-    });
-	});
-	
 } );
 
 
@@ -40,7 +32,7 @@ $(document).ready(function() {
              {% with cur_criteria_key=meta_dict|dict_lookup:cur_criteria %}
  
             <div class="row" id="criteria_row_{{ cur_criteria }}" style="padding:5px;">
-      		<div class="col-md-3">{{ cur_criteria_key }}</div>
+      		<div class="col-md-3">{{ cur_criteria_key }}&nbsp;<i class="fa fa-question-circle" aria-hidden="true" data-toggle="popover" data-trigger="manual" id="criteria_row_help_{{ cur_criteria }}" data-poload="/faq"></i></div>
       		<div class="col-md-1" id="{{ cur_criteria }}"></div>
       		<div class="col-md-8">{% show_disease_bar disease_code expand_od=True %}</div>
       		</div>
