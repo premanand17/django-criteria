@@ -8,12 +8,10 @@
  * The details section (which expands on clicking the 'DETAIL' button), get the information from this ajax call.
  *  
  */
-
 (function( criteria, $, undefined ) {
-	
+
 	// get criteria details for criteria section
 	criteria.get_criteria_details = function(feature_id, app_name) {
-	
 		url_ = "/" + app_name + "/criteria/";
 		$.ajax({
 			type: "POST",
@@ -25,56 +23,38 @@
 		        }
 		    },
 			success: function(hits, textStatus, jqXHR) {
-			
 				feature_id_ori = feature_id;
-				//Region id constains '.' which might break, so replace dots with underscore
-				feature_id = feature_id.replace(/\./g, '_');
-										
+				feature_id = feature_id.replace(/\./g, '_');					
 				pydgin_utils.add_spinner_before('table-criteria-'+feature_id, "criteria-spinner-"+feature_id);
-				
-				
-						
+
 				if(hits.hits.length == 0){
-					row = "<p style='padding:10px'>No results found</p>"
+					row = "<p style='padding:10px'>No results found</p>";
 					$('#criteria-'+feature_id).replaceWith(row);
 				}
 
-				/* 
-				 * We get the criteria description from the meta_info
-				 * We get the info about which object to link to from link_info
-				 * 
-				 * If there is only one feature to know in the Details column, we show it as it is.
-				 * If there is more than one, then we display a 'DETAILS' button, which upon clicking
-				 * displays a details table.	
-				 * 
-				 */
-				
 				var detail_row = "";
 				for(var i=0; i<hits.hits.length; i++) {
 					var idx =  hits.hits[i]['_index'];
 					var type = hits.hits[i]['_type'];
 					var meta_info = hits['meta_info'];
 					var link_info = hits['link_info'];
-					var agg_disease_tags = hits['agg_disease_tags'].sort()
+					var agg_disease_tags = hits['agg_disease_tags'].sort();
 
-					criteria_desc = meta_info[idx][type];
-										
+					criteria_desc = meta_info[idx][type];					
 					link_id_type = link_info[idx][type];
-					
+
         			var hit = hits.hits[i]._source;
 					var disease_tags = hit.disease_tags.sort();
-					
 					var features_list = {}
 					
 					$.each(disease_tags, function( index, dis_code ) {
 						notes_list = hits.hits[i]['_source'][dis_code];
-						
+
 						$.each(notes_list, function( index, notes_dict ) {
 							var current_row = "";
 							current_row += '<a href="/' + link_id_type +'/' + notes_dict['fid'] + '/">';
 							current_row += notes_dict['fname'] ;
 							current_row += '</a>';
-							
 							if(current_row in features_list){
 								cur_dis_list = features_list[current_row];
 								cur_dis_list.push(dis_code);
@@ -84,29 +64,25 @@
 								dis_list.push(dis_code);
 								features_list[current_row] = dis_list;
 							}
-							
-
 						});
-						
 					});
-					
+
 					var lc_desc = type.toLowerCase();
 					var lc_desc_ = lc_desc.replace(/\s+/g,"_");
 					
 					criteria.get_criteria_help("#criteria_row_help_" + lc_desc_);
-			
+					
 					if(Object.keys(features_list).length == 1){
 						for (var firstKey in features_list) break;
-						$('div[id="'+lc_desc_+'"]').append(firstKey)
-					}else{
-						
+						$('div[id="'+lc_desc_+'"]').append(firstKey);
+					} else {
+
 						var show_button = '<button class="btn btn-sm btn-default" id="criteria_details_button_'+ lc_desc_ +'" data-toggle="collapse" data-target="#criteria_details_'+lc_desc_ +'">DETAILS</button>'
 						$('div[id="'+lc_desc_+'"]').append(show_button)
 						    detail_row = "";
 							detail_row += '<table  class="table-striped table-bordered" >';  
 							detail_row += "<tr>";
 						$.each( features_list, function( feature, dis_codes ) {
-
 							detail_row += "<td width='150px'>";
 							detail_row += feature;
 							detail_row += "</td>";
@@ -119,25 +95,21 @@
 							detail_row += '</div>';
 							detail_row += '</td>';
 							detail_row += '</tr>';
-						 
-							
 						});
-						detail_row += '</table	>';  
-					
-												
+						detail_row += '</table	>'; 					
 						detail_row2 = "";
+
 						detail_row2 += "<div id='criteria_details_"+ lc_desc_  +"'  class='collapse col-md-9 col-md-offset-3' >";
 						detail_row2 += detail_row;
 						detail_row2 += '</div>';
 						$('div[id="criteria_row_'+ lc_desc_+'"]' ).after(detail_row2);
-					}
-    								
+					}				
 				}
-				
 				$("#criteria-spinner-"+feature_id).remove();
-     		}
+			}
 		});
-	}//end of get criteria details 
+	} //end of get criteria details
+	
 	
 	//Function to populate the popups...Content is fetched from faq page for each criteria
 	criteria.get_criteria_help = function(selector) {
@@ -174,17 +146,7 @@
 			});
 
 	}//end of get criteria help
-		
-		
-		
+	
+	
 	
 }( window.criteria = window.criteria || {}, jQuery ));
-
-
-
-
-
-
-
-
-
