@@ -1,3 +1,13 @@
+/**
+ * Script to populate the criteria details sections in all feature pages.
+ * 
+ * The url app_name/criteria takes to the criteria_details function implemented in all the
+ * feature views, which returns the criteria details in json format.
+ * 
+ * The basic table is build by criteria.html with the information available in the context.
+ * The details section (which expands on clicking the 'DETAIL' button), get the information from this ajax call.
+ *  
+ */
 (function( criteria, $, undefined ) {
 
 	// get criteria details for criteria section
@@ -59,12 +69,14 @@
 
 					var lc_desc = type.toLowerCase();
 					var lc_desc_ = lc_desc.replace(/\s+/g,"_");
-
+					
+					criteria.get_criteria_help("#criteria_row_help_" + lc_desc_);
+					
 					if(Object.keys(features_list).length == 1){
 						for (var firstKey in features_list) break;
 						$('div[id="'+lc_desc_+'"]').append(firstKey);
 					} else {
-						//console.log(lc_desc_);
+
 						var show_button = '<button class="btn btn-sm btn-default" id="criteria_details_button_'+ lc_desc_ +'" data-toggle="collapse" data-target="#criteria_details_'+lc_desc_ +'">DETAILS</button>'
 						$('div[id="'+lc_desc_+'"]').append(show_button)
 						    detail_row = "";
@@ -96,5 +108,41 @@
 				$("#criteria-spinner-"+feature_id).remove();
 			}
 		});
-	}
+	} //end of get criteria details
+	
+	//Function to populate the popups...Content is fetched from faq page for each criteria
+	criteria.get_criteria_help = function(selector) {
+		$(selector).on('mouseenter', function() {
+			var e = $(this);
+			if(e.data('bs.popover')) {  // check if content already retrieved
+                $(e).popover('show');
+            } else {
+				        var e=$(this);
+				        this_id = $(this).attr('id');
+				        criteria_id = this_id.replace(/criteria_row_help_/, '');
+			        
+				        $.get(e.data('poload'),function(response) {
+				        		criteria_title= $(response).find("#"+criteria_id + " td:nth-child(1)").html();
+				        		criteria_info = $(response).find("#"+criteria_id + " td:nth-child(2)").html();
+				        		criteria_title = '<span style="white-space: nowrap">' + criteria_title + '</span>';	      			        	
+				        	e.popover({
+				        		title: criteria_title,
+				        		content: criteria_info,
+				        		html: true,
+				        		template:'<div class="popover popover-wide" role="tooltip">'
+				        			+'<div class="arrow"></div><h3 class="popover-title"></h3>'
+				        			+'<div class="popover-content"></div></div>'}).popover('show');
+	                        
+	                         $(e).on("mouseleave", function () {
+	                            $(e).popover('hide');
+	                        });
+	                        
+				        });
+            }
+		   }).mouseleave(function() {
+	                 $(this).popover('hide');
+			});
+
+	}//end of get criteria help
+	
 }( window.criteria = window.criteria || {}, jQuery ));
