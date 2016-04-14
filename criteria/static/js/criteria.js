@@ -28,8 +28,8 @@
 				pydgin_utils.add_spinner_before('table-criteria-'+feature_id, "criteria-spinner-"+feature_id);
 
 				if(hits.hits.length == 0){
-					row = "<p style='padding:10px'>No results found</p>";
-					$('#criteria-'+feature_id).replaceWith(row);
+					row = "No results found";
+					$('#criteria-'+feature_id).html(row);
 				}
 
 				var detail_row = "";
@@ -61,7 +61,7 @@
 								link_data = fnotes['linkdata'];
 								link_value = fnotes['linkvalue'];
 								if(link_data && link_value){
-									current_row += ' <strong>('+link_data+':'+link_value + ')</strong>';
+									current_row += ' ('+link_data+':'+link_value + ')';
 								}
 
 							}

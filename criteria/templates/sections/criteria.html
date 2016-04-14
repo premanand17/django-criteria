@@ -16,6 +16,10 @@ $(document).ready(function() {
 {% load pydgin_tags %}
 {% load disease_tags %}	
 
+{% if criteria.items %}
+<p>{{ f|doc_name }} meets the following criteria:</p>
+{% endif %}
+
 <div class="row" style="border-bottom: 1px solid #dfd7ca; padding:5px;" >
   <div class="col-md-3" style="font-weight:bold;">Criteria Name</div>
   <div class="col-md-1" style="font-weight:bold;">Details</div>

@@ -193,10 +193,10 @@ class GeneCriteria(Criteria):
         return {doc.doc_id(): doc for doc in elastic.search().docs}
 
     @classmethod
-    def get_disease_tags(cls, feature_id):
+    def get_disease_tags(cls, feature_id, idx_type=None):
         'Function to get disease tags for a given feature_id...delegated to parent class Criteria. Returns disease docs'
-        idx = ElasticSettings.idx('GENE_CRITERIA')
-        docs = Criteria.get_disease_tags(feature_id, idx)
+        idx = ElasticSettings.idx(cls.FEATURE_TYPE.upper()+'_CRITERIA')
+        docs = Criteria.get_disease_tags(feature_id, idx, idx_type)
         return docs
 
     @classmethod
@@ -220,7 +220,7 @@ class GeneCriteria(Criteria):
 
     @classmethod
     def get_disease_codes_from_results(cls, criteria_results):
-        idx = ElasticSettings.idx('GENE_CRITERIA')
+        idx = ElasticSettings.idx(cls.FEATURE_TYPE.upper()+'_CRITERIA')
         codes = Criteria.get_disease_codes_from_results(idx, criteria_results)
         return sorted(codes)
 
