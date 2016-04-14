@@ -28,8 +28,8 @@
 				pydgin_utils.add_spinner_before('table-criteria-'+feature_id, "criteria-spinner-"+feature_id);
 
 				if(hits.hits.length == 0){
-					row = "<p style='padding:10px'>No results found</p>";
-					$('#criteria-'+feature_id).replaceWith(row);
+					row = "No results found";
+					$('#criteria-'+feature_id).html(row);
 				}
 
 				var detail_row = "";
@@ -117,7 +117,10 @@
 					}				
 				}
 				$("#criteria-spinner-"+feature_id).remove();
-			}
+			},
+			error: function (textStatus, errorThrown) {
+                               
+            }
 		});
 	} //end of get criteria details
 	
