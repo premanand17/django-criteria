@@ -61,7 +61,7 @@
 								link_data = fnotes['linkdata'];
 								link_value = fnotes['linkvalue'];
 								if(link_data && link_value){
-									current_row += ' <strong>('+link_data+':'+link_value + ')</strong>';
+									current_row += ' ('+link_data+':'+link_value + ')';
 								}
 
 							}
@@ -117,10 +117,7 @@
 					}				
 				}
 				$("#criteria-spinner-"+feature_id).remove();
-			},
-			error: function (textStatus, errorThrown) {
-                               
-            }
+			}
 		});
 	} //end of get criteria details
 	
