@@ -1,7 +1,7 @@
 import logging
 from builtins import classmethod
 from elastic.search import ElasticQuery, Search
-from elastic.query import Query
+from elastic.query import Query, BoolQuery
 from elastic.elastic_settings import ElasticSettings
 from criteria.helper.criteria import Criteria
 from region import utils
@@ -161,6 +161,97 @@ class GeneCriteria(Criteria):
                                                             fnotes=None, features=genes,
                                                             diseases=diseases,
                                                             result_container=result_container)
+        return result_container_populated
+
+    @classmethod
+    def exonic_index_snp_in_gene(cls, hit, section=None, config=None, result_container={}):
+
+        feature_doc = hit['_source']
+        feature_doc['_id'] = hit['_id']
+
+        marker = None
+        if 'marker' in feature_doc:
+            marker = feature_doc['marker']
+
+        disease = None
+        if 'disease' in feature_doc:
+            disease = feature_doc['disease']
+
+        status = None
+        if 'status' in feature_doc:
+            status = feature_doc['status']
+
+        if marker is None or disease is None or status is None:
+            return result_container
+
+        if status != 'N':
+            return result_container
+
+        disease_loci = feature_doc["disease_locus"].lower()
+
+        if disease_loci == 'tbc':
+            return result_container
+
+        # get marker info and gene info from function info dbsp
+        # get marker doc
+        query = ElasticQuery(BoolQuery(must_arr=[Query.term("id", marker)]), sources=['id', 'info'])
+        elastic = Search(search_query=query, idx=ElasticSettings.idx('MARKER', 'MARKER'), size=1)
+        docs = elastic.search().docs
+        marker_doc = None
+
+        if docs is not None and len(docs) > 0:
+            marker_doc = elastic.search().docs[0]
+
+        if marker_doc is None:
+            return result_container
+
+        from marker.templatetags.marker_tags import marker_functional_info
+        from marker.templatetags.marker_tags import gene_info
+
+        ''' Retrieve functional information from bitfield in the INFO column.
+        ftp://ftp.ncbi.nlm.nih.gov/snp/specs/dbSNP_BitField_latest.pdf
+
+        ('has synonymous', True), ('has reference', True), ('has stop gain', False),
+        ('has non-synonymous missense', False), ('has non-synonymous frameshift', False), ('has stop loss', False)])
+        '''
+        functional_info = marker_functional_info(marker_doc)
+        # print(functional_info)
+
+        is_in_exon = False
+
+        if functional_info['has non-synonymous missense'] or\
+            functional_info['has synonymous'] or functional_info['has non-synonymous frameshift'] or\
+            functional_info['has reference'] or functional_info['has stop gain'] or\
+                functional_info['has stop loss']:
+                is_in_exon = True
+
+        # gene_symbols = []
+        if is_in_exon:
+            gene_ids = gene_info(marker_doc)
+            ensembl_gene_ids = gene_ids.values()
+#             gene_symbols.extend(list(gene_ids.keys()))
+#             print(ensembl_gene_ids)
+#             for gene in gene_symbols:
+#                 print('^^^\t'+gene)
+        else:
+            return result_container
+
+        dil_study_id = feature_doc['dil_study_id']
+        fnotes = None
+        if dil_study_id:
+            query = ElasticQuery(Query.ids([dil_study_id]))
+            elastic = Search(search_query=query, idx=ElasticSettings.idx('STUDY', 'STUDY'), size=1)
+            study_doc = elastic.search().docs[0]
+            author = getattr(study_doc, 'authors')[0]
+            first_author = author['name'] + ' ' + author['initials']
+            fnotes = {'linkid': dil_study_id, 'linkname': first_author}
+
+        result_container_populated = cls.populate_container(marker,
+                                                            marker,
+                                                            fnotes=fnotes, features=ensembl_gene_ids,
+                                                            diseases=[disease],
+                                                            result_container=result_container)
+
         return result_container_populated
 
     @classmethod
