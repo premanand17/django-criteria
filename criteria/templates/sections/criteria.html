@@ -18,7 +18,6 @@ $(document).ready(function() {
 
 {% if criteria.items %}
 <p>{{ f|doc_name }} meets the following criteria:</p>
-{% endif %}
 
 <div class="row" style="border-bottom: 1px solid #dfd7ca; padding:5px;" >
   <div class="col-md-3" style="font-weight:bold;">Criteria Name</div>
@@ -49,5 +48,9 @@ $(document).ready(function() {
           {% endwith %}
         
 	{% endfor %}
+	
+{% else %}
+<p>No results found</p>
+{% endif %}
 
 {% endblock %}
