@@ -60,10 +60,22 @@
 								fnotes = notes_dict['fnotes'];
 								link_data = fnotes['linkdata'];
 								link_value = fnotes['linkvalue'];
+								
+								link_id = fnotes['linkid'];
+								link_name = fnotes['linkname'];
+								
 								if(link_data && link_value){
 									current_row += ' ('+link_data+':'+link_value + ')';
 								}
-
+								current_link = '';
+								if(link_id && link_name){
+									current_link += '<a href="/' + 'study' +'/' + link_id + '/">';
+									current_link += link_name;
+									current_link += '</a>';
+									if(current_row.indexOf(link_id) == -1){
+									current_row += " - " + current_link
+									}
+								}
 							}
 							
 							if(current_row in features_list){
