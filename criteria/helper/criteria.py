@@ -10,6 +10,7 @@ from elastic.management.loaders.mapping import MappingProperties
 from elastic.query import BoolQuery, RangeQuery, OrFilter, Query
 from elastic.search import Search, ElasticQuery, ScanAndScroll
 from elastic.utils import ElasticUtils
+from disease.utils import Disease
 
 
 logger = logging.getLogger(__name__)
@@ -559,9 +560,10 @@ class Criteria():
 
         # get disease docs
         if (len(disease_tags) > 0):
-            query = ElasticQuery(Query.ids(disease_tags))
-            elastic = Search(query, idx=ElasticSettings.idx('DISEASE'), size=len(disease_tags), search_from=0)
-            return elastic.search().docs
+            (core, other) = Disease.get_site_diseases(dis_list=disease_tags)
+            diseases = list(core)
+            diseases.extend(other)
+            return diseases
         else:
             return None
 
