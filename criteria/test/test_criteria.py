@@ -5,7 +5,6 @@ import criteria
 from data_pipeline.utils import IniParser
 from criteria.helper.criteria import Criteria
 from criteria.helper.criteria_manager import CriteriaManager
-from criteria.helper.gene_criteria import GeneCriteria
 
 IDX_SUFFIX = ElasticSettings.getattr('TEST')
 MY_INI_FILE = os.path.join(os.path.dirname(__file__), IDX_SUFFIX + '_test_criteria.ini')
