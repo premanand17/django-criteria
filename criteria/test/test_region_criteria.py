@@ -4,12 +4,9 @@ import os
 import criteria
 from data_pipeline.utils import IniParser
 from criteria.helper.region_criteria import RegionCriteria
-from django.core.management import call_command
-import requests
-from criteria.test.settings_idx import OVERRIDE_SETTINGS
 from django.test.utils import override_settings
 from elastic.utils import ElasticUtils
-from elastic.search import Search
+from pydgin.tests.data.settings_idx import PydginTestSettings
 
 IDX_SUFFIX = ElasticSettings.getattr('TEST')
 MY_INI_FILE = os.path.join(os.path.dirname(__file__), IDX_SUFFIX + '_test_criteria.ini')
@@ -17,6 +14,7 @@ TEST_DATA_DIR = os.path.dirname(criteria.__file__) + '/tests/data'
 INI_CONFIG = None
 
 
+@override_settings(ELASTIC=PydginTestSettings.OVERRIDE_SETTINGS)
 def setUpModule():
     ''' Change ini config (MY_INI_FILE) to use the test suffix when
     creating pipeline indices. '''
@@ -34,16 +32,22 @@ def setUpModule():
 
     INI_CONFIG = IniParser().read_ini(MY_INI_FILE)
 
+    PydginTestSettings.setupIdx(['DISEASE', 'REGION_CRITERIA_IS_REGION_IN_MHC',
+                                 'REGION_CRITERIA_IS_REGION_FOR_DISEASE'])
+
     # create the region index
-    call_command('criteria_index', '--feature', 'region', '--test')
-    Search.index_refresh(INI_CONFIG['DEFAULT']['CRITERIA_IDX_REGION'])
+    # call_command('criteria_index', '--feature', 'region', '--test')
+    # Search.index_refresh(INI_CONFIG['DEFAULT']['CRITERIA_IDX_REGION'])
 
 
+@override_settings(ELASTIC=PydginTestSettings.OVERRIDE_SETTINGS)
 def tearDownModule():
     # remove index created
     global INI_CONFIG
-    requests.delete(ElasticSettings.url() + '/' + INI_CONFIG['DEFAULT']['CRITERIA_IDX_REGION'])
     os.remove(MY_INI_FILE)
+    # requests.delete(ElasticSettings.url() + '/' + INI_CONFIG['DEFAULT']['CRITERIA_IDX_REGION'])
+    PydginTestSettings.tearDownIdx(['REGION', 'DISEASE',
+                                    'REGION_CRITERIA_IS_REGION_IN_MHC', 'REGION_CRITERIA_IS_REGION_FOR_DISEASE'])
 
 
 class RegionCriteriaTest(TestCase):
@@ -126,7 +130,7 @@ class RegionCriteriaTest(TestCase):
 
         self.assertEqual(criteria_results, expected_dict, 'Got result dict for is_region_in_mhc as expected')
 
-    @override_settings(ELASTIC=OVERRIDE_SETTINGS)
+    @override_settings(ELASTIC=PydginTestSettings.OVERRIDE_SETTINGS)
     def test_get_criteria_details(self):
         config = IniParser().read_ini(MY_INI_FILE)
         idx = ElasticSettings.idx('REGION_CRITERIA')

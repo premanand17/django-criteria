@@ -4,9 +4,8 @@ import os
 import criteria
 from data_pipeline.utils import IniParser
 from criteria.helper.study_criteria import StudyCriteria
-import requests
-from django.core.management import call_command
-from elastic.search import Search
+from django.test.utils import override_settings
+from pydgin.tests.data.settings_idx import PydginTestSettings
 
 IDX_SUFFIX = ElasticSettings.getattr('TEST')
 MY_INI_FILE = os.path.join(os.path.dirname(__file__), IDX_SUFFIX + '_test_criteria.ini')
@@ -14,6 +13,7 @@ TEST_DATA_DIR = os.path.dirname(criteria.__file__) + '/tests/data'
 INI_CONFIG = None
 
 
+@override_settings(ELASTIC=PydginTestSettings.OVERRIDE_SETTINGS)
 def setUpModule():
     ''' Change ini config (MY_INI_FILE) to use the test suffix when
     creating pipeline indices. '''
@@ -31,16 +31,21 @@ def setUpModule():
 
     INI_CONFIG = IniParser().read_ini(MY_INI_FILE)
 
+    PydginTestSettings.setupIdx(['DISEASE', 'STUDY_CRITERIA_STUDY_FOR_DISEASE'])
+
     # create the study index
-    call_command('criteria_index', '--feature', 'study', '--test')
-    Search.index_refresh(INI_CONFIG['DEFAULT']['CRITERIA_IDX_STUDY'])
+    # call_command('criteria_index', '--feature', 'study', '--test')
+    # Search.index_refresh(INI_CONFIG['DEFAULT']['CRITERIA_IDX_STUDY'])
 
 
+@override_settings(ELASTIC=PydginTestSettings.OVERRIDE_SETTINGS)
 def tearDownModule():
     # remove index created
     global INI_CONFIG
-    requests.delete(ElasticSettings.url() + '/' + INI_CONFIG['DEFAULT']['CRITERIA_IDX_STUDY'])
     os.remove(MY_INI_FILE)
+    # requests.delete(ElasticSettings.url() + '/' + INI_CONFIG['DEFAULT']['CRITERIA_IDX_STUDY'])
+
+    PydginTestSettings.tearDownIdx(['DISEASE', 'STUDY_CRITERIA_STUDY_FOR_DISEASE'])
 
 
 class StudyCriteriaTest(TestCase):
