@@ -64,11 +64,11 @@ class CriteriaDataIntegrityUtils(object):
 class CriteriaDataIntegrityMartUtils(object):
 
     @classmethod
-    def get_mart_results(cls, dataset, criteria=None, is_phenotag=True, entrez_list=""):
+    def get_mart_results(cls, dataset, criteria=None, is_phenotag=True, id_list=""):
 
         # compare if the disease tags matches with the new criteria results
         mart_url = 'https://mart.immunobase.org/biomart/martservice?'
-        limit = 1000
+        limit = 500
 
         criteria_mart = 'criteria__object__main__' + criteria
         queryURL = \
@@ -77,7 +77,7 @@ class CriteriaDataIntegrityMartUtils(object):
             '<!DOCTYPE Query><Query client="pythonclient" processor="JSON" limit="' + str(limit) + '" header="1">' \
             '<Dataset name="' + dataset + '" config="criteria_config_1">' \
             '<Filter name="criteria__criterias__dm__criteria" value="' + criteria + '" filter_list=""/>' \
-            '<Filter name="criteria__alias__dm__alias" value="' + entrez_list + '" filter_list=""/>'\
+            '<Filter name="criteria__alias__dm__alias" value="' + id_list + '" filter_list=""/>'\
             '<Attribute name="criteria__object__main__name"/>' \
             '<Attribute name="criteria__object__main__primary_id"/>' \
             '<Attribute name="criteria__criterias__dm__criteria"/>' \
@@ -216,8 +216,8 @@ class CriteriaDataIntegrityMartUtils(object):
             print('==========' + str(counter) + '==========')
             print(criteria_doc.__dict__)
             counter = counter + 1
-            current_ensembl_id = getattr(criteria_doc, 'qid')
-            comparison_result = cls.compare_dicts(criteria_doc.__dict__, old_criteria_results[current_ensembl_id],
+            current_id = getattr(criteria_doc, 'qid')
+            comparison_result = cls.compare_dicts(criteria_doc.__dict__, old_criteria_results[current_id],
                                                   primary_id_type, criteria_sub_class, criteria_idx_type)
             if(len(comparison_result) > 0):
                 comparison_result_list.append(comparison_result)
@@ -240,9 +240,16 @@ class CriteriaDataIntegrityMartUtils(object):
         comparison_result = {}
 
         '''REMEMBER: TO CHANGE THE CRITERIA CLASS'''
+#         print('=======================================')
+#         print(primary_id_type)
+#         print(new_criteria['qid'])
+#         print(old_criteria[primary_id_type])
+#         print(old_criteria)
+#         print(new_criteria)
+#         print('=======================================')
 
         if new_criteria['qid'] == old_criteria[primary_id_type]:
-
+            print('===Reached if =======')
             disease_docs = criteria_sub_class.get_disease_tags(new_criteria['qid'], idx_type=criteria_idx_type)
 
             new_disease_tags = [getattr(disease_doc, 'code').upper() for disease_doc in disease_docs]
@@ -264,7 +271,7 @@ class CriteriaDataIntegrityMartUtils(object):
         # false_only = False
         disease_exists = True
         counter = 1
-        print(str(0) + '\t' + 'ensembl_id' + '\t' + 'new_disease_tags' + '\t' + 'old_disease_tags')
+        print(str(0) + '\t' + 'primary_id' + '\t' + 'new_disease_tags' + '\t' + 'old_disease_tags')
         for row in comparison_result_list:
             for ensembl_id in row:
                 new_disease_tags = row[ensembl_id]['new_criteria']

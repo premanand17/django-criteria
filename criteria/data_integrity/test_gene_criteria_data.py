@@ -8,11 +8,9 @@ from data_pipeline.utils import IniParser
 import logging
 
 from criteria.data_integrity.test_utils import CriteriaDataIntegrityTestUtils,\
-    CriteriaDataIntegrityUtils, CriteriaDataIntegrityMartUtils
+    CriteriaDataIntegrityUtils
 from criteria.helper.criteria import Criteria
 from elastic.utils import ElasticUtils
-from data_pipeline.helper.gene import Gene
-from criteria.helper.gene_criteria import GeneCriteria
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +65,6 @@ class GeneCriteriaDataTest(TestCase):
 #         ['IBD', 'UC']
 #         [{'fid': '5q31.1_013', 'fname': '5q31.1'}]
 #         [{'fid': '5q31.1_013', 'fname': '5q31.1'}]
-
         fnotes = getattr(gene_in_region_doc, disease_tags[0])
         region_id = fnotes[0]['fid']
         print(region_id)

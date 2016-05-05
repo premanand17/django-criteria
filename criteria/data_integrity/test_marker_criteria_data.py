@@ -53,29 +53,4 @@ class MarkerCriteriaDataTest(TestCase):
         doc_by_idx_type = ElasticUtils.get_rdm_docs(idx, idx_type, size=1)
         self.assertTrue(len(doc_by_idx_type) == 1, 'got back one document')
         # TODO check if this region exists in region index and also the gene and disease tag is right
-
-    def compare_results_with_live_site(self):
-
-        # get some random genes from live site with disease tags
-        dataset = 'immunobase_criteria_markers'
-        mart_results = CriteriaDataIntegrityMartUtils.get_mart_results(dataset)
-
-        print('===================')
-        print(len(mart_results))
-        print('===================')
-
-        old_criteria_results = {}
-        for row in mart_results:
-            row['rs_id'] = row['name']
-            old_criteria_results[row['rs_id']] = row
-
-        # query gene_criteria with list of ensembl ids
-        marker_criteria_index = 'pydgin_imb_criteria_marker'
-        criteria_sub_class = MarkerCriteria
-        comparison_result_list = CriteriaDataIntegrityMartUtils.get_comparison_results(marker_criteria_index,
-                                                                                       old_criteria_results,
-                                                                                       'rs_id', criteria_sub_class)
-
-        print('======== Final Result Not matched ==============' + str(len(comparison_result_list)))
-        CriteriaDataIntegrityMartUtils.print_results(comparison_result_list)
-        print('======== Done ==================================')
+    

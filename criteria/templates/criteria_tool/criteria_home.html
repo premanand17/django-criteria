@@ -1,0 +1,52 @@
+ {% extends "base.html" %}
+ 
+ {% block content %}
+ 
+ <div class="container">
+ 
+<div class="col-md-12">
+	<div class="panel panel-default">
+		<div class="panel-heading" name="disease_comparison_tool">
+			<h3 class="panel-title">DISEASE COMPARISON TOOL</h3>
+		</div>
+		<div class="panel-body">
+			<div class="well well-sm">
+			<strong>About Disease Comparion Tool</strong>
+			</div>
+			
+			{{ form.errors}}
+			
+			<a role="button" data-toggle="collapse" href="#operating_instructions" aria-expanded="false" aria-controls="mappingFilters">
+			<i class="fa fa-caret-square-o-down col-md-offset-1"></i></a>&nbsp;&nbsp;<strong>Operating Instructions</strong>
+			<div id="operating_instructions" class="collapse col-md-offset-1" style="padding-left:20px">
+			Operatings instrunction...{% lorem %} 
+			</div>
+			<br/>
+			<a role="button" data-toggle="collapse" href="#results_page" aria-expanded="false" aria-controls="mappingFilters">
+			<i class="fa fa-caret-square-o-down col-md-offset-1"></i></a>&nbsp;&nbsp;<strong>Results Page</strong>
+			<div id="results_page" class="collapse col-md-offset-1" style="padding-left:20px">
+			Results page ...{% lorem %} 
+			</div>
+			<br/>
+			<a role="button" data-toggle="collapse" href="#scientific_details" aria-expanded="false" aria-controls="mappingFilters">
+			<i class="fa fa-caret-square-o-down col-md-offset-1"></i></a>&nbsp;&nbsp;<strong>Scientific Details</strong>
+			<div id="scientific_details" class="collapse col-md-offset-1" style="padding-left:20px">
+			scientifc details...{% lorem %} 
+			</div>
+			<p></p>
+			
+			{% if show_query %}
+			{% include "criteria_tool/criteria_query.html" %}
+			{% endif %}
+			
+			{% if show_result %}
+			{% include "criteria_tool/criteria_result.html" %}
+			{% endif %}
+			
+		</div>
+	</div>
+</div>
+</div>
+ 
+
+{% endblock %}

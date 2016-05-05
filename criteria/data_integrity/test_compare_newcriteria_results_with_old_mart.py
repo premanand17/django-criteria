@@ -13,6 +13,7 @@ from criteria.helper.criteria import Criteria
 from elastic.utils import ElasticUtils
 from data_pipeline.helper.gene import Gene
 from criteria.helper.gene_criteria import GeneCriteria
+from criteria.helper.marker_criteria import MarkerCriteria
 
 logger = logging.getLogger(__name__)
 
@@ -41,57 +42,48 @@ class CriteriaDataTest(TestCase):
 
         # get some random genes from live site with disease tags
         dataset = 'immunobase_criteria_markers'
-        # criteria = 'cand_gene_in_study' #done
-        # criteria = 'gene_in_region' #done
-        criteria = 'is_in_mhc'
+        # criteria = 'is_an_index_snp' done
+        # criteria = 'rsq_with_index_snp' done
+        criteria = 'marker_is_gwas_significant'
 
         # query gene_criteria with list of ensembl ids
-        gene_criteria_index = 'pydgin_imb_criteria_gene'
-        # gene_criteria_index_type = 'cand_gene_in_study'
-        # gene_criteria_index_type = 'gene_in_region'
-        gene_criteria_index_type = 'is_gene_in_mhc'
+        criteria_index = 'pydgin_imb_criteria_marker'
+        # criteria_index_type = 'is_an_index_snp' done
+        # criteria_index_type = 'rsq_with_index_snp' done
+        criteria_index_type = 'marker_is_gwas_significant_in_study'
 
         # First get the entrez ids
         mart_results = CriteriaDataIntegrityMartUtils.get_mart_results(dataset, criteria, is_phenotag=False)
+        print(mart_results)
 
-        entrez_ids = [row['primary_id'] for row in mart_results]
-        print('Number of genes fetched from mart for criteria ' + criteria + ' : ' + str(len(entrez_ids)))
+        marker_rs_ids = [row['name'] for row in mart_results]
+        print('Number of markers fetched from mart for criteria ' + criteria + ' : ' + str(len(marker_rs_ids)))
 
-        print(entrez_ids)
-        entrez2ensembl = self.get_ensemb_ids(entrez_ids)
-
-        entrez_ids_list = [entrez_id for entrez_id in entrez2ensembl]
-        entrez_ids_str = ','.join(entrez_ids_list)
-        print(entrez_ids_str)
-
-        print('Number of genes after entrez2ensembl ' + str(len(entrez2ensembl)))
+        marker_rs_ids_str = ','.join(marker_rs_ids)
+        print(marker_rs_ids_str)
 
         # call phenotag search now
         mart_results = CriteriaDataIntegrityMartUtils.get_mart_results(dataset, criteria, is_phenotag=True,
-                                                                       entrez_list=entrez_ids_str)
+                                                                       id_list=marker_rs_ids_str)
 
         not_mapped = []
         old_criteria_results = {}
         for row in mart_results:
-            if row['primary_id'] in entrez2ensembl:
-                row['ensembl_id'] = entrez2ensembl[row['primary_id']]
-                old_criteria_results[row['ensembl_id']] = row
-            else:
-                print('Entrez2ensembl not available for ' + row['primary_id'])
-                not_mapped.append(row['primary_id'])
+            old_criteria_results[row['name']] = row
 
-        print('Not mapped ' + str(len(not_mapped)))
-
-        comparison_result_list = CriteriaDataIntegrityMartUtils.get_comparison_results(gene_criteria_index,
-                                                                                       gene_criteria_index_type,
+        comparison_result_list = CriteriaDataIntegrityMartUtils.get_comparison_results(criteria_index,
+                                                                                       criteria_index_type,
                                                                                        old_criteria_results,
-                                                                                       'ensembl_id',
-                                                                                       GeneCriteria)
+                                                                                       'name',
+                                                                                       MarkerCriteria)
+
+        print('++++++++++++++++++++++++')
+        print(comparison_result_list)
+        print('++++++++++++++++++++++++')
 
         print('======== Final Result Not matched ==============' + str(len(comparison_result_list)))
         CriteriaDataIntegrityMartUtils.print_results(comparison_result_list)
         print('======== Done ==================================')
-
 
     def compare_gene_results_with_live_site(self):
 
@@ -99,13 +91,15 @@ class CriteriaDataTest(TestCase):
         dataset = 'immunobase_criteria_genes'
         # criteria = 'cand_gene_in_study' #done
         # criteria = 'gene_in_region' #done
-        criteria = 'is_in_mhc'
+        # criteria = 'is_in_mhc' #done
+        criteria = 'exonic_index_snp_in_gene'
 
         # query gene_criteria with list of ensembl ids
         gene_criteria_index = 'pydgin_imb_criteria_gene'
         # gene_criteria_index_type = 'cand_gene_in_study'
         # gene_criteria_index_type = 'gene_in_region'
-        gene_criteria_index_type = 'is_gene_in_mhc'
+        # gene_criteria_index_type = 'is_gene_in_mhc'
+        gene_criteria_index_type = 'exonic_index_snp_in_gene'
 
         # First get the entrez ids
         mart_results = CriteriaDataIntegrityMartUtils.get_mart_results(dataset, criteria, is_phenotag=False)
@@ -124,7 +118,7 @@ class CriteriaDataTest(TestCase):
 
         # call phenotag search now
         mart_results = CriteriaDataIntegrityMartUtils.get_mart_results(dataset, criteria, is_phenotag=True,
-                                                                       entrez_list=entrez_ids_str)
+                                                                       id_list=entrez_ids_str)
 
         not_mapped = []
         old_criteria_results = {}

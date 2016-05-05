@@ -8,9 +8,12 @@ from elastic.elastic_settings import ElasticSettings
 from elastic.management.loaders.loader import Loader
 from elastic.management.loaders.mapping import MappingProperties
 from elastic.query import BoolQuery, RangeQuery, OrFilter, Query
-from elastic.search import Search, ElasticQuery, ScanAndScroll
+from elastic.search import Search, ElasticQuery, ScanAndScroll, Highlight
 from elastic.utils import ElasticUtils
 from disease.utils import Disease
+from django.conf import settings
+from region.utils import Region
+import re
 
 
 logger = logging.getLogger(__name__)
@@ -610,8 +613,9 @@ class Criteria():
                     criteria_disease_tags[qid] = {}
                 criteria_disease_tags[qid][criteria_desc] = hit['_source']['disease_tags']
 
-        for fid in criteria_disease_tags:
-            disease_tags_all = cls.get_all_criteria_disease_tags_aggregated(qid, criteria_disease_tags[qid])
+        disease_tags_all = []
+        for fid, fvalue in criteria_disease_tags.items():
+            disease_tags_all = cls.get_all_criteria_disease_tags_aggregated(qid, fvalue)
             criteria_disease_tags[fid]['all'] = disease_tags_all
 
             criteria_disease_tags[fid]['meta_info'] = meta_info
@@ -717,3 +721,165 @@ class Criteria():
         idx_type = ','.join(criteria_list)
 
         return (idx, idx_type)
+
+    @classmethod
+    def do_identifier_search(cls, identifiers, user=None):
+
+        source_filter = [
+                        'symbol', 'synonyms', "dbxrefs.*",                            # gene
+                        'id', 'rscurrent', 'rshigh',                                  # marker
+                        'study_id', 'study_name',                                     # study
+                        'region_name', 'marker', "region_id"]                                      # regions
+
+        highlight = Highlight(["symbol", "dbxrefs.*", "region", "region_name","region_id",
+                               "study_id", "study_name", "id", "rscurrent", "rshigh", "marker"])
+
+        search_query = ElasticQuery(Query.query_string(" ".join(identifiers), fields=source_filter),
+                                    highlight=highlight, sources=source_filter)
+
+        search_idx_keys = ['REGION', 'GENE', 'STUDY', 'MARKER']
+        search_idx_type_keys = ['REGION', 'GENE',  'STUDY', 'MARKER']
+
+        idx_all = [ElasticSettings.idx_names(idx, idx_type=idx_type) for idx, idx_type in zip(search_idx_keys,
+                                                                                              search_idx_type_keys)]
+        idx_dict = dict(idx_all)
+
+        search_idx = ','.join(idx_dict.keys())
+        search_idx_types = ','.join(idx_dict.values())
+
+        print(search_idx)
+        print(search_idx_types)
+
+        elastic = Search(search_query=search_query, idx=search_idx, idx_type=search_idx_types)
+
+        gene_dict = {}
+        region_dict = {}
+        marker_dict = {}
+        study_dict = {}
+
+        docs = elastic.search().docs
+        for doc in docs:
+            existing_feature_list = []
+
+            idx = getattr(doc, '_meta')['_index']
+            idx_type = getattr(doc, '_meta')['_type']
+            doc_id = doc.doc_id()
+            print(idx)
+            print(idx_type)
+            print('============')
+            print(doc_id)
+
+            highlight = doc.highlight()
+            if highlight is not None:
+                pattern = ".*?<em>(.*?)</em>.*"
+                result = re.match(pattern, str(highlight))
+                if result is not None:
+                    highlight_hit = result.group(1)
+
+                    if idx_type == "studies":
+                        feature_id = getattr(doc, "study_id")
+
+                        if highlight_hit not in study_dict:
+                            study_dict[highlight_hit] = {}
+
+                        if feature_id in study_dict[highlight_hit]:
+                            existing_feature_list = study_dict[highlight_hit]
+
+                        existing_feature_list.append(feature_id)
+                        study_dict[highlight_hit] = existing_feature_list
+
+                    if idx_type == "gene":
+                        feature_id = doc_id
+
+                        if highlight_hit not in gene_dict:
+                            gene_dict[highlight_hit] = {}
+
+                        if feature_id in gene_dict[highlight_hit]:
+                            existing_feature_list = gene_dict[highlight_hit]
+
+                        existing_feature_list.append(feature_id)
+                        gene_dict[highlight_hit] = existing_feature_list
+
+                    if idx_type == "marker":
+                        feature_id = getattr(doc, "id")
+
+                        if highlight_hit not in marker_dict:
+                            marker_dict[highlight_hit] = {}
+
+                        if feature_id in marker_dict[highlight_hit]:
+                            existing_feature_list = marker_dict[highlight_hit]
+
+                        existing_feature_list.append(feature_id)
+                        marker_dict[highlight_hit] = existing_feature_list
+
+                    if idx_type == "region":
+                        feature_id = getattr(doc, "region_id")
+
+                        if highlight_hit not in region_dict:
+                            region_dict[highlight_hit] = {}
+
+                        if feature_id in region_dict[highlight_hit]:
+                            existing_feature_list = region_dict[highlight_hit]
+
+                        existing_feature_list.append(feature_id)
+                        region_dict[highlight_hit] = existing_feature_list
+
+        print(study_dict)
+        print(gene_dict)
+        print(marker_dict)
+        print(region_dict)
+
+        all_result_dict = {}
+        all_result_dict['gene'] = gene_dict
+        all_result_dict['marker'] = marker_dict
+        all_result_dict['region'] = region_dict
+        all_result_dict['study'] = study_dict
+
+
+        print('===================')
+        original_list = [_id.lower() for _id in identifiers]
+        print(original_list)
+        result_list = list(study_dict.keys()) + list(gene_dict.keys()) + list(marker_dict.keys()) + list(region_dict.keys())
+        result_list = [_id.lower() for _id in result_list]
+        print(result_list)
+        diff_list = set(original_list) - set(result_list)
+        print(diff_list)
+        all_result_dict['missing'] = list(diff_list)
+        print('+++++++++++++++++++')
+
+        print(all_result_dict)
+        return all_result_dict
+
+    @classmethod
+    def do_criteria_search(cls, identifiers, user=None):
+
+        all_result_dict = cls.do_identifier_search(identifiers, user)
+        criteria_disease_tags = {}
+        for feature_type in all_result_dict:
+            if feature_type != 'missing':
+                print(feature_type)
+                feature_dict = {}
+                for queryid, querynames in all_result_dict[feature_type].items():
+                    if feature_type in feature_dict:
+                        existing_list = feature_dict[feature_type]
+                        existing_list.extend(querynames)
+                    else:
+                        feature_dict[feature_type] = querynames
+
+               
+                (idx, idx_types) = cls.get_feature_idx_n_idxtypes(feature_type)
+                if feature_type in feature_dict:
+                    criteria_disease_tags[feature_type] = cls.get_all_criteria_disease_tags(feature_dict[feature_type], idx, idx_types)
+
+        return criteria_disease_tags
+
+
+    @classmethod
+    def _collapse_region_docs(cls, docs):
+        ''' If the document is a hit then find parent region; pad all regions for build_info.'''
+        hits = [doc for doc in docs if doc.type() == 'hits']
+        regions = [doc for doc in docs if doc.type() == 'region']
+
+        if len(hits) > 0:
+            regions = Region.hits_to_regions(hits)
+            return regions
