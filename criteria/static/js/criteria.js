@@ -92,7 +92,8 @@
 
 					var lc_desc = type.toLowerCase();
 					var lc_desc_ = lc_desc.replace(/\s+/g,"_");
-					
+					lc_desc_ = lc_desc_ + '_' + feature_id
+					console.log(lc_desc_)
 					criteria.get_criteria_help("#criteria_row_help_" + lc_desc_);
 					
 					if(Object.keys(features_list).length == 1){

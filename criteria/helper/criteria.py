@@ -11,7 +11,6 @@ from elastic.query import BoolQuery, RangeQuery, OrFilter, Query
 from elastic.search import Search, ElasticQuery, ScanAndScroll, Highlight
 from elastic.utils import ElasticUtils
 from disease.utils import Disease
-from django.conf import settings
 from region.utils import Region
 import re
 
@@ -80,7 +79,6 @@ class Criteria():
             hits = resp_json['hits']['hits']
             global hit_counter
             for hit in hits:
-                # print('======HIT COUNTER====' + str(hit_counter))
                 hit_counter = hit_counter + 1
 
                 result_container = sub_class.tag_feature_to_disease(hit, section, config,
@@ -592,7 +590,12 @@ class Criteria():
     @classmethod
     def get_all_criteria_disease_tags(cls, qids, idx, idx_type):
 
-        query = ElasticQuery(Query.terms("qid", qids), sources=['disease_tags', 'qid'])
+        if qids is None:
+            query = ElasticQuery(Query.match_all(), sources=['disease_tags', 'qid'])
+            # search = Search(query, idx=idx, idx_type=idx_type, size=30000)
+        else:
+            query = ElasticQuery(Query.terms("qid", qids), sources=['disease_tags', 'qid'])
+            # search = Search(query, idx=idx, idx_type=idx_type)
 
         search = Search(query, idx=idx, idx_type=idx_type)
         criteria_hits = search.get_json_response()['hits']
@@ -731,7 +734,7 @@ class Criteria():
                         'study_id', 'study_name',                                     # study
                         'region_name', 'marker', "region_id"]                                      # regions
 
-        highlight = Highlight(["symbol", "dbxrefs.*", "region", "region_name","region_id",
+        highlight = Highlight(["symbol", "dbxrefs.*", "region", "region_name", "region_id",
                                "study_id", "study_name", "id", "rscurrent", "rshigh", "marker"])
 
         search_query = ElasticQuery(Query.query_string(" ".join(identifiers), fields=source_filter),
@@ -747,9 +750,6 @@ class Criteria():
         search_idx = ','.join(idx_dict.keys())
         search_idx_types = ','.join(idx_dict.values())
 
-        print(search_idx)
-        print(search_idx_types)
-
         elastic = Search(search_query=search_query, idx=search_idx, idx_type=search_idx_types)
 
         gene_dict = {}
@@ -764,10 +764,6 @@ class Criteria():
             idx = getattr(doc, '_meta')['_index']
             idx_type = getattr(doc, '_meta')['_type']
             doc_id = doc.doc_id()
-            print(idx)
-            print(idx_type)
-            print('============')
-            print(doc_id)
 
             highlight = doc.highlight()
             if highlight is not None:
@@ -824,30 +820,19 @@ class Criteria():
                         existing_feature_list.append(feature_id)
                         region_dict[highlight_hit] = existing_feature_list
 
-        print(study_dict)
-        print(gene_dict)
-        print(marker_dict)
-        print(region_dict)
-
         all_result_dict = {}
         all_result_dict['gene'] = gene_dict
         all_result_dict['marker'] = marker_dict
         all_result_dict['region'] = region_dict
         all_result_dict['study'] = study_dict
 
-
-        print('===================')
         original_list = [_id.lower() for _id in identifiers]
-        print(original_list)
-        result_list = list(study_dict.keys()) + list(gene_dict.keys()) + list(marker_dict.keys()) + list(region_dict.keys())
+        result_list = list(study_dict.keys()) + list(gene_dict.keys()) + list(marker_dict.keys()) + \
+            list(region_dict.keys())
         result_list = [_id.lower() for _id in result_list]
-        print(result_list)
-        diff_list = set(original_list) - set(result_list)
-        print(diff_list)
-        all_result_dict['missing'] = list(diff_list)
-        print('+++++++++++++++++++')
 
-        print(all_result_dict)
+        diff_list = set(original_list) - set(result_list)
+        all_result_dict['missing'] = list(diff_list)
         return all_result_dict
 
     @classmethod
@@ -857,22 +842,19 @@ class Criteria():
         criteria_disease_tags = {}
         for feature_type in all_result_dict:
             if feature_type != 'missing':
-                print(feature_type)
                 feature_dict = {}
-                for queryid, querynames in all_result_dict[feature_type].items():
+                for queryid, querynames in all_result_dict[feature_type].items():  # @UnusedVariable
                     if feature_type in feature_dict:
                         existing_list = feature_dict[feature_type]
                         existing_list.extend(querynames)
                     else:
                         feature_dict[feature_type] = querynames
 
-               
                 (idx, idx_types) = cls.get_feature_idx_n_idxtypes(feature_type)
                 if feature_type in feature_dict:
-                    criteria_disease_tags[feature_type] = cls.get_all_criteria_disease_tags(feature_dict[feature_type], idx, idx_types)
-
+                    criteria_disease_tags[feature_type] = cls.get_all_criteria_disease_tags(feature_dict[feature_type],
+                                                                                            idx, idx_types)
         return criteria_disease_tags
-
 
     @classmethod
     def _collapse_region_docs(cls, docs):
