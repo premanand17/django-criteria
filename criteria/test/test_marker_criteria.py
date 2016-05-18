@@ -4,12 +4,9 @@ import os
 import criteria
 from data_pipeline.utils import IniParser
 from criteria.helper.marker_criteria import MarkerCriteria
-from django.core.management import call_command
-import requests
-from criteria.test.settings_idx import OVERRIDE_SETTINGS
 from django.test.utils import override_settings
 from elastic.utils import ElasticUtils
-from elastic.search import Search
+from pydgin.tests.data.settings_idx import PydginTestSettings
 
 
 IDX_SUFFIX = ElasticSettings.getattr('TEST')
@@ -18,6 +15,7 @@ TEST_DATA_DIR = os.path.dirname(criteria.__file__) + '/tests/data'
 INI_CONFIG = None
 
 
+@override_settings(ELASTIC=PydginTestSettings.OVERRIDE_SETTINGS)
 def setUpModule():
     ''' Change ini config (MY_INI_FILE) to use the test suffix when
     creating pipeline indices. '''
@@ -35,16 +33,27 @@ def setUpModule():
 
     INI_CONFIG = IniParser().read_ini(MY_INI_FILE)
 
+    PydginTestSettings.setupIdx(['DISEASE',
+                                 'MARKER_CRITERIA_IS_MARKER_IN_MHC', 'MARKER_CRITERIA_IS_AN_INDEX_SNP',
+                                 'MARKER_CRITERIA_MARKER_IS_GWAS_SIGNIFICANT_STUDY',
+                                 'MARKER_CRITERIA_RSQ_WITH_INDEX_SNP'])
+
     # create the marker index
-    call_command('criteria_index', '--feature', 'marker', '--test')
-    Search.index_refresh(INI_CONFIG['DEFAULT']['CRITERIA_IDX_MARKER'])
+    # call_command('criteria_index', '--feature', 'marker', '--test')
+    # Search.index_refresh(INI_CONFIG['DEFAULT']['CRITERIA_IDX_MARKER'])
 
 
+@override_settings(ELASTIC=PydginTestSettings.OVERRIDE_SETTINGS)
 def tearDownModule():
     # remove index created
     global INI_CONFIG
-    requests.delete(ElasticSettings.url() + '/' + INI_CONFIG['DEFAULT']['CRITERIA_IDX_MARKER'])
     os.remove(MY_INI_FILE)
+    # requests.delete(ElasticSettings.url() + '/' + INI_CONFIG['DEFAULT']['CRITERIA_IDX_MARKER'])
+
+    PydginTestSettings.tearDownIdx(['MARKER', 'DISEASE',
+                                    'MARKER_CRITERIA_IS_MARKER_IN_MHC', 'MARKER_CRITERIA_IS_AN_INDEX_SNP',
+                                    'MARKER_CRITERIA_MARKER_IS_GWAS_SIGNIFICANT_STUDY',
+                                    'MARKER_CRITERIA_RSQ_WITH_INDEX_SNP'])
 
 
 class MarkerCriteriaTest(TestCase):
@@ -190,7 +199,7 @@ class MarkerCriteriaTest(TestCase):
         p_val_to_compare = float(criteria_results_fnotes['linkvalue'])
         self.assertTrue(p_val_to_compare < gw_sig_p, 'p val less than gwas significant pvalue')
 
-    @override_settings(ELASTIC=OVERRIDE_SETTINGS)
+    @override_settings(ELASTIC=PydginTestSettings.OVERRIDE_SETTINGS)
     def test_get_disease_tags(self):
         config = IniParser().read_ini(MY_INI_FILE)
         idx = ElasticSettings.idx('MARKER_CRITERIA')
@@ -206,7 +215,7 @@ class MarkerCriteriaTest(TestCase):
         disease_tags = [getattr(disease_doc, 'code') for disease_doc in disease_docs]
         self.assertIsNotNone(disease_tags, "got back disease tags")
 
-    @override_settings(ELASTIC=OVERRIDE_SETTINGS)
+    @override_settings(ELASTIC=PydginTestSettings.OVERRIDE_SETTINGS)
     def test_get_criteria_details(self):
         config = IniParser().read_ini(MY_INI_FILE)
         idx = ElasticSettings.idx('MARKER_CRITERIA')

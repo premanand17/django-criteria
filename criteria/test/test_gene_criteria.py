@@ -4,13 +4,10 @@ import os
 import criteria
 from data_pipeline.utils import IniParser
 from criteria.helper.gene_criteria import GeneCriteria
-from django.core.management import call_command
-import requests
-from criteria.test.settings_idx import OVERRIDE_SETTINGS
 from django.test.utils import override_settings
 from elastic.utils import ElasticUtils
-from elastic.search import Search
 import disease.document
+from pydgin.tests.data.settings_idx import PydginTestSettings
 
 
 IDX_SUFFIX = ElasticSettings.getattr('TEST')
@@ -19,6 +16,7 @@ TEST_DATA_DIR = os.path.dirname(criteria.__file__) + '/tests/data'
 INI_CONFIG = None
 
 
+@override_settings(ELASTIC=PydginTestSettings.OVERRIDE_SETTINGS)
 def setUpModule():
     ''' Change ini config (MY_INI_FILE) to use the test suffix when
     creating pipeline indices. '''
@@ -36,16 +34,24 @@ def setUpModule():
 
     INI_CONFIG = IniParser().read_ini(MY_INI_FILE)
 
+    PydginTestSettings.setupIdx(['DISEASE', 'MARKER', 'GENE_CRITERIA_IS_GENE_IN_MHC',
+                                 'GENE_CRITERIA_CAND_GENE_IN_STUDY',
+                                 'GENE_CRITERIA_GENE_IN_REGION', 'GENE_CRITERIA_CAND_GENE_IN_REGION'])
+
     # create the gene index
-    call_command('criteria_index', '--feature', 'gene', '--test')
-    Search.index_refresh(INI_CONFIG['DEFAULT']['CRITERIA_IDX_GENE'])
+    # call_command('criteria_index', '--feature', 'gene', '--test')
+    # Search.index_refresh(INI_CONFIG['DEFAULT']['CRITERIA_IDX_GENE'])
 
 
+@override_settings(ELASTIC=PydginTestSettings.OVERRIDE_SETTINGS)
 def tearDownModule():
     # remove index created
     global INI_CONFIG
-    requests.delete(ElasticSettings.url() + '/' + INI_CONFIG['DEFAULT']['CRITERIA_IDX_GENE'])
     os.remove(MY_INI_FILE)
+    # requests.delete(ElasticSettings.url() + '/' + INI_CONFIG['DEFAULT']['CRITERIA_IDX_GENE'])
+
+    PydginTestSettings.tearDownIdx(['DISEASE', 'GENE_CRITERIA_IS_GENE_IN_MHC', 'GENE_CRITERIA_CAND_GENE_IN_STUDY',
+                                    'GENE_CRITERIA_GENE_IN_REGION', 'GENE_CRITERIA_CAND_GENE_IN_REGION'])
 
 
 class GeneCriteriaTest(TestCase):
@@ -164,6 +170,19 @@ class GeneCriteriaTest(TestCase):
                           '_type': 'studies',
                           '_index': 'studies_latest', '_id': 'GDXHsS00005', '_score': 0.0}
 
+        self.region_hit = {
+            '_index': "regions_v0.0.5",
+            '_type': "hits",
+            '_id': "AVLFmnd7GA5k1HUlJV9R",
+            '_source': {
+                        'disease_locus': "1p13.2",
+                        'status': "N",
+                        'disease': "RA",
+                        'marker': "rs2476601",
+                        'dil_study_id': "GDXHsS00019",
+            }
+            }
+
     def test_gene_in_region(self):
         ''' Test process_gene_in_region. '''
         config = IniParser().read_ini(MY_INI_FILE)
@@ -263,6 +282,22 @@ class GeneCriteriaTest(TestCase):
         updated_doc = GeneCriteria.cand_gene_in_study(input_doc, config=config, result_container=result_doc)
         self.assertEqual(expected_doc, updated_doc, 'dicts are equal and as expected')
 
+    def test_exonic_index_snp_in_gene(self):
+        ''' Test exonic_index_snp_in_gene. '''
+        config = IniParser().read_ini(MY_INI_FILE)
+
+        # pass a region document
+        criteria_results = GeneCriteria.exonic_index_snp_in_gene(self.region_hit,
+                                                                 config=config, result_container={})
+
+        expected_result = {'ENSG00000226167': {'RA': [{'fid': 'rs2476601',
+                                                       'fnotes': {'linkname': 'Eyre S', 'linkid': 'GDXHsS00019'},
+                                                       'fname': 'rs2476601'}]},
+                           'ENSG00000134242': {'RA': [{'fid': 'rs2476601',
+                                                       'fnotes': {'linkname': 'Eyre S', 'linkid': 'GDXHsS00019'},
+                                                       'fname': 'rs2476601'}]}}
+        self.assertEqual(criteria_results, expected_result, 'Got back expected result')
+
     def test_tag_feature_to_disease(self):
         ''' Test tag_feature_to_disease. '''
         config = IniParser().read_ini(MY_INI_FILE)
@@ -282,14 +317,15 @@ class GeneCriteriaTest(TestCase):
 
         self.assertEqual(result2, expected_result, 'Got back expected result')
 
+    @override_settings(ELASTIC=PydginTestSettings.OVERRIDE_SETTINGS)
     def test_get_disease_tags(self):
-        disease_docs = GeneCriteria.get_disease_tags('ENSG00000163599')
+
+        # feature_id = self.get_random_feature_id()
+        feature_id = 'ENSG00000134242'
+        disease_docs = GeneCriteria.get_disease_tags(feature_id)
 
         disease_tags = [getattr(disease_doc, 'code') for disease_doc in disease_docs]
-
-        self.assertIn('atd', disease_tags, 'atd in disease_tags')
-        self.assertIn('aa', disease_tags, 'aa in disease_tags')
-        self.assertIn('cel', disease_tags, 'cel in disease_tags')
+        self.assertTrue(len(disease_tags) > 0, 'disease_tags present')
 
     def test_available_criterias(self):
         config = IniParser().read_ini(MY_INI_FILE)
@@ -299,7 +335,7 @@ class GeneCriteriaTest(TestCase):
         self.assertIn('cand_gene_in_study', available_criterias['gene'])
         self.assertEqual(available_criterias.keys(), expected_dict.keys(), 'Dic keys equal')
 
-    @override_settings(ELASTIC=OVERRIDE_SETTINGS)
+    @override_settings(ELASTIC=PydginTestSettings.OVERRIDE_SETTINGS)
     def test_get_criteria_details(self):
         config = IniParser().read_ini(MY_INI_FILE)
         idx = ElasticSettings.idx('GENE_CRITERIA')
@@ -328,7 +364,7 @@ class GeneCriteriaTest(TestCase):
         self.assertIn('fid', fdetails.keys())
         self.assertIn('fname', fdetails.keys())
 
-    @override_settings(ELASTIC=OVERRIDE_SETTINGS)
+    @override_settings(ELASTIC=PydginTestSettings.OVERRIDE_SETTINGS)
     def test_get_disease_tags_from_results(self):
         config = IniParser().read_ini(MY_INI_FILE)
         feature_id = self.get_random_feature_id()
@@ -337,13 +373,16 @@ class GeneCriteriaTest(TestCase):
         dis_codes = GeneCriteria.get_disease_codes_from_results(criteria_details)
         self.assertTrue(len(dis_codes) > 0, 'Got disease codes')
 
-    @override_settings(ELASTIC=OVERRIDE_SETTINGS)
+    @override_settings(ELASTIC=PydginTestSettings.OVERRIDE_SETTINGS)
     def test_get_disease_tags_as_codes(self):
 
-        feature_id = self.get_random_feature_id()
+        feature_id = 'ENSG00000134242'
         disease_docs = GeneCriteria.get_disease_tags(feature_id)
         disease_codes = GeneCriteria.get_disease_tags_as_codes(feature_id)
         self.assertEqual(len(disease_docs), len(disease_codes), 'Got the same disease code size')
+
+        print(len(disease_docs))
+        print(len(disease_codes))
 
         doc1 = disease_docs[0]
         dis1 = disease_codes[0]
@@ -361,11 +400,11 @@ class GeneCriteriaTest(TestCase):
         feature_id = getattr(doc_by_idx_type[0], 'qid')
         return feature_id
 
-    @override_settings(ELASTIC=OVERRIDE_SETTINGS)
+    @override_settings(ELASTIC=PydginTestSettings.OVERRIDE_SETTINGS)
     def test_get_all_criteria_disease_tags(self):
 
-        feature_id1 = self.get_random_feature_id()
-        feature_id2 = self.get_random_feature_id()
+        feature_id1 = 'ENSG00000134242'
+        feature_id2 = 'ENSG00000227609'
         criteria_disease_tags = GeneCriteria.get_all_criteria_disease_tags([feature_id1,
                                                                             feature_id2])
 

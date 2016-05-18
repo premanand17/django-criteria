@@ -5,7 +5,6 @@ import criteria
 from data_pipeline.utils import IniParser
 from criteria.helper.criteria import Criteria
 from criteria.helper.criteria_manager import CriteriaManager
-from criteria.helper.gene_criteria import GeneCriteria
 
 IDX_SUFFIX = ElasticSettings.getattr('TEST')
 MY_INI_FILE = os.path.join(os.path.dirname(__file__), IDX_SUFFIX + '_test_criteria.ini')
@@ -198,3 +197,20 @@ class CriteriaTest(TestCase):
         self.assertIn('is_an_index_snp', idx_types, 'Got the right idx type back')
         self.assertIn('marker_is_gwas_significant_in_study', idx_types, 'Got the right idx type back')
         self.assertIn('is_marker_in_mhc', idx_types, 'Got the right idx type back')
+
+    def test_do_identifier_search(self):
+
+        identifiers = ['ptpn22', 'rs2476601', '1p13.2', 'ctla4', 'GDXHsS00025', 'foo', 'bar']
+        result_dict = Criteria.do_identifier_search(identifiers)
+        expected_dict = {'region': {'1p13.2': ['1p13.2_019']},
+                         'marker': {'rs2476601': ['rs2476601']},
+                         'gene': {'PTPN22': ['ENSG00000134242'], 'CTLA4': ['ENSG00000163599']},
+                         'study': {'GDXHsS00025': ['GDXHsS00025']},
+                         'missing': ['foo', 'bar']}
+        self.assertEqual(result_dict, expected_dict, 'Got back correct results')
+
+    def test_do_criteria_search(self):
+
+        identifiers = ['ptpn22', 'rs2476601', '1p13.2', 'ctla4', 'GDXHsS00025', 'foo', 'bar']
+        criteria_disease_tags = Criteria.do_criteria_search(identifiers)
+        print(criteria_disease_tags)

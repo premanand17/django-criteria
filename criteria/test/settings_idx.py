@@ -21,6 +21,7 @@ OVERRIDE_SETTINGS = \
                         'CAND_GENE_IN_STUDY': {'type': 'cand_gene_in_study',  'auth_public': True},
                         'CAND_GENE_IN_REGION': {'type': 'cand_gene_in_region',  'auth_public': True},
                         'GENE_IN_REGION': {'type': 'gene_in_region',  'auth_public': True},
+                        'EXONIC_INDEX_SNP_IN_REGION': {'type': 'exonic_index_snp_in_gene',  'auth_public': True},
                         },
                     'auth_public': True
                     },

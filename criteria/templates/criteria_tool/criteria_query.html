@@ -1,0 +1,32 @@
+{% block header_js %}
+
+<script language="javascript" type="text/javascript">
+$(document).ready(function(){
+
+$("#criteria_example").click(function(event) 
+{ 
+   event.preventDefault();
+   $('#query').val('PTPN22\nCTLA4\nrs2476601\n1p13.2\nGDXHsS00025\nfoo\nbar');
+   
+})
+});
+</script>
+{% endblock %}
+
+
+<div class="well well-sm">
+	<strong>Create Query</strong>
+</div>
+			
+<div class="col-md-offset-1	 col-md-7">
+	<form  method="post" role="form" action=".">
+		{% csrf_token %}
+	
+    <div class="form-group">
+      		<label for="query">Enter (gene, marker, region, study) identifiers (one per line):</label> <a id="criteria_example" href="#" > Example </a>
+     		<textarea class="form-control" id="query" name="query" rows="10" placeholder="Enter identifiers"></textarea>
+   	</div>
+   	<button type="submit" class="btn btn-default">Submit</button>
+  	</form>
+</div>
+			

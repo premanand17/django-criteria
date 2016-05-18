@@ -325,10 +325,10 @@ class MarkerCriteria(Criteria):
             return result_container
 
     @classmethod
-    def get_disease_tags(cls, feature_id):
-
-        idx = ElasticSettings.idx('MARKER_CRITERIA')
-        docs = Criteria.get_disease_tags(feature_id, idx)
+    def get_disease_tags(cls, feature_id, idx_type=None):
+        'Function to get disease tags for a given feature_id...delegated to parent class Criteria. Returns disease docs'
+        idx = ElasticSettings.idx(cls.FEATURE_TYPE.upper()+'_CRITERIA')
+        docs = Criteria.get_disease_tags(feature_id, idx, idx_type)
         return docs
 
     @classmethod
@@ -352,7 +352,7 @@ class MarkerCriteria(Criteria):
 
     @classmethod
     def get_disease_codes_from_results(cls, criteria_results):
-        idx = ElasticSettings.idx('MARKER_CRITERIA')
+        idx = ElasticSettings.idx(cls.FEATURE_TYPE.upper()+'_CRITERIA')
         codes = Criteria.get_disease_codes_from_results(idx, criteria_results)
         return sorted(codes)
 
