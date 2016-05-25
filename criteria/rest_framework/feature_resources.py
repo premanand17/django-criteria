@@ -52,6 +52,7 @@ class CriteriaFilterBackend(ElasticFilterBackend):
             disease_doc_tags = Criteria.get_disease_tags(feature_id, idx=idx)
             disease_tags = [getattr(d, 'code') for d in disease_doc_tags]
             new_obj = ElasticObject()
+            new_obj.qid = feature_id
             new_obj.disease_tags = disease_tags
             new_obj.criteria_type = None
             results.append(new_obj)
@@ -178,19 +179,19 @@ class ListCriteriaMixin(ListElasticMixin):
     filter_backends = [CriteriaFilterBackend, ]
 
 
-class RetrieveCriteriaMixin(RetrieveElasticMixin):
-
-    def get_object(self):
-        q = ElasticQuery(Query.ids(self.kwargs[self.lookup_field]))
-        s = Search(search_query=q, idx=getattr(self, 'idx'))
-        try:
-            result = s.get_json_response()['hits']['hits'][0]
-            obj = ElasticObject(initial=result['_source'])
-            obj.uuid = result['_id']
-            obj.criteria_type = result['_type']
-
-            # May raise a permission denied
-            self.check_object_permissions(self.request, obj)
-            return obj
-        except (TypeError, ValueError, IndexError):
-            raise Http404
+# class RetrieveCriteriaMixin(RetrieveElasticMixin):
+# 
+#     def get_object(self):
+#         q = ElasticQuery(Query.ids(self.kwargs[self.lookup_field]))
+#         s = Search(search_query=q, idx=getattr(self, 'idx'))
+#         try:
+#             result = s.get_json_response()['hits']['hits'][0]
+#             obj = ElasticObject(initial=result['_source'])
+#             obj.uuid = result['_id']
+#             obj.criteria_type = result['_type']
+# 
+#             # May raise a permission denied
+#             self.check_object_permissions(self.request, obj)
+#             return obj
+#         except (TypeError, ValueError, IndexError):
+#             raise Http404
